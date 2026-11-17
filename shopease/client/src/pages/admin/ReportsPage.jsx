@@ -1,0 +1,1 @@
+import PageHeader from '../../components/ui/PageHeader';import AdminReportList from '../../components/reports/AdminReportList';export default function ReportsPage(){return <><PageHeader title="Reports" description="Review submitted concerns and track barangay action."/><AdminReportList/></>;}

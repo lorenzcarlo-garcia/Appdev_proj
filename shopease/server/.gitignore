@@ -27,3 +27,5 @@ dist-ssr
 *.sw?
 
 server/.env
+# Private resident photos
+/storage/report-photos/

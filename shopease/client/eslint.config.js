@@ -5,7 +5,8 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // The preserved, unmounted ShopEasy snapshot is not part of the active app.
+  globalIgnores(['dist', 'src/pages/legacy/ShopEasyProducts.jsx']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [

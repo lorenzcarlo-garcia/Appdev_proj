@@ -44,10 +44,10 @@ function fakeDatabase() {
   };
   return db;
 }
-async function fixture(t) {
+async function fixture(t, overrides = {}) {
   const db = fakeDatabase();
   const store = new session.MemoryStore(); // Tests only; production uses MySQL.
-  const app = createApp({ config, db, sessionStore: store });
+  const app = createApp({ config: { ...config, ...overrides }, db, sessionStore: store });
   const server = app.listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
   t.after(async () => { await new Promise(resolve => server.close(resolve)); store.clear(); });
@@ -208,4 +208,41 @@ test('password policy accepts 12 through 128 characters only', () => {
   assert.equal(validPassword('a'.repeat(128)), true);
   assert.equal(validPassword('a'.repeat(129)), false);
   assert.equal(validPassword(null), false);
+});
+
+
+test('same resident can log in on laptop and phone and log out independently at both allowed origins', async t => {
+  const phoneOrigin='http://192.168.1.7:5173';
+  const f=await fixture(t,{clientOrigins:[config.clientOrigin,phoneOrigin]});
+  f.db.users.push({id:1,resident_id:1,email:'devices@example.invalid',password_hash:await hashPassword(password),role:'resident',is_active:1});
+  await f.request('/api/auth/csrf');
+  const desktopLogin=await f.request('/api/auth/login','POST',{email:'devices@example.invalid',password});
+  assert.equal(desktopLogin.status,200);const desktopCookie=f.cookie, desktopToken=desktopLogin.data.csrfToken;
+  assert.equal(desktopLogin.headers.get('access-control-allow-origin'),config.clientOrigin);
+  await f.request('/api/auth/csrf','GET',undefined,{Cookie:'',Origin:phoneOrigin});
+  const phoneLogin=await f.request('/api/auth/login','POST',{email:'devices@example.invalid',password},{Origin:phoneOrigin});
+  assert.equal(phoneLogin.status,200);const phoneCookie=f.cookie, phoneToken=phoneLogin.data.csrfToken;
+  assert.notEqual(phoneCookie,desktopCookie);assert.equal(phoneLogin.headers.get('access-control-allow-origin'),phoneOrigin);
+  const desktopHeaders={Cookie:desktopCookie,Origin:config.clientOrigin,'X-CSRF-Token':desktopToken};
+  const phoneHeaders={Cookie:phoneCookie,Origin:phoneOrigin,'X-CSRF-Token':phoneToken};
+  assert.equal((await f.request('/api/auth/logout','POST',{},desktopHeaders)).status,200);
+  assert.equal((await f.request('/api/auth/me','GET',undefined,desktopHeaders)).status,401);
+  assert.equal((await f.request('/api/auth/me','GET',undefined,phoneHeaders)).status,200);
+  const attacker=await f.request('/api/auth/logout','POST',{}, {...phoneHeaders,Origin:'http://untrusted.invalid'});
+  assert.equal(attacker.status,403);assert.equal(attacker.headers.get('access-control-allow-origin'),null);
+  assert.equal((await f.request('/api/auth/me','GET',undefined,phoneHeaders)).status,200);
+  assert.equal((await f.request('/api/auth/logout','POST',{},phoneHeaders)).status,200);
+  assert.equal((await f.request('/api/auth/me','GET',undefined,phoneHeaders)).status,401);
+});
+
+test('extra client origins are explicit and validated without wildcard, path or credential acceptance', () => {
+  const source=`const dotenvPath=require.resolve('dotenv');require.cache[dotenvPath]={exports:{config(){}}};console.log(JSON.stringify(require('./src/config/env').clientOrigins));`;
+  const env={...process.env,DB_HOST:'localhost',DB_USER:'test',DB_PASSWORD:'',DB_NAME:'test',CLIENT_ORIGIN:config.clientOrigin,PORT:'5000',SESSION_SECRET:config.sessionSecret,ADDITIONAL_CLIENT_ORIGINS:'http://192.168.1.7:5173, http://localhost:5173'};
+  const cwd=require('node:path').resolve(__dirname,'..');
+  const result=spawnSync(process.execPath,['-e',source],{cwd,env,encoding:'utf8'});
+  assert.equal(result.status,0);assert.deepEqual(JSON.parse(result.stdout),[config.clientOrigin,'http://192.168.1.7:5173']);
+  for(const invalid of ['*','http://*.example.com','http://192.168.1.7:5173/path','http://user:pass@192.168.1.7:5173','null']) {
+    const failed=spawnSync(process.execPath,['-e',source],{cwd,env:{...env,ADDITIONAL_CLIENT_ORIGINS:invalid},encoding:'utf8'});
+    assert.notEqual(failed.status,0);assert.match(failed.stderr,/ADDITIONAL_CLIENT_ORIGINS/);
+  }
 });

@@ -1,9 +1,10 @@
 const { randomBytes, timingSafeEqual } = require('node:crypto');
 function newToken() { return randomBytes(32).toString('hex'); }
 function csrfProtection(origin) {
+  const allowedOrigins = Array.isArray(origin) ? origin : [origin];
   return (req, res, next) => {
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
-    if (req.get('Origin') && req.get('Origin') !== origin) {
+    if (req.get('Origin') && !allowedOrigins.includes(req.get('Origin'))) {
       return res.status(403).json({ success: false, message: 'Request origin is not allowed' });
     }
     const supplied = req.get('X-CSRF-Token');

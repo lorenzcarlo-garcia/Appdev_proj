@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const baseURL = 'http://localhost:5000/api';
+const baseURL = import.meta.env.VITE_API_URL || '/api';
 const api = axios.create({
   baseURL,
   withCredentials: true,
@@ -23,10 +23,13 @@ api.interceptors.request.use(async (config) => {
 });
 api.interceptors.response.use((response) => {
   if (response.data?.csrfToken) csrfToken = response.data.csrfToken;
-  if (response.config.url === '/auth/logout') csrfToken = undefined;
+  if (['/auth/logout','/auth/change-password'].includes(response.config.url)) csrfToken = undefined;
   return response;
 }, (error) => {
   if ([401, 403].includes(error.response?.status)) csrfToken = undefined;
+  if (error.response?.status === 401 && !['/auth/login', '/auth/register', '/auth/me'].includes(error.config?.url)) {
+    window.dispatchEvent(new Event('bantaylog:unauthorized'));
+  }
   // Do not automatically replay writes.
   return Promise.reject(error);
 });

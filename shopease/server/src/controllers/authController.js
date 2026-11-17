@@ -1,3 +1,4 @@
+const {credentialTag}=require('../services/sessionCredentials');
 const { hashPassword, verifyPassword, validPassword } = require('../services/password');
 const { newToken } = require('../middleware/csrf');
 const { COOKIE_NAME } = require('../config/session');
@@ -70,6 +71,7 @@ function controllers(db, config) {
       if (!user || !user.is_active || !matches) return res.status(401).json({ success: false, message: 'Invalid email or password' });
       await regenerate(req);
       req.session.userId = user.id;
+      req.session.credentialTag = credentialTag(user.password_hash);
       req.session.csrfToken = newToken();
       await db.execute('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
       await save(req);

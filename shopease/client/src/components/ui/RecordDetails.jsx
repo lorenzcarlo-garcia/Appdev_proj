@@ -1,0 +1,1 @@
+export default function RecordDetails({items}){return <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">{items.map(([label,value])=><div key={label} className="min-w-0"><dt className="text-sm text-muted">{label}</dt><dd className="mt-1 text-sm leading-7 whitespace-pre-wrap wrap-anywhere">{value ?? 'Not provided'}</dd></div>)}</dl>;}

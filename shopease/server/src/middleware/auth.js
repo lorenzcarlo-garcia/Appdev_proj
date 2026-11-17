@@ -1,11 +1,12 @@
+const {matchesCredential}=require('../services/sessionCredentials');
 function authentication(db) {
   return async (req, res, next) => {
     if (!req.session.userId) return res.status(401).json({ success: false, message: 'Login required' });
     const [rows] = await db.execute(
-      'SELECT id, email, role, resident_id, is_active FROM users WHERE id = ?', [req.session.userId]
+      'SELECT id, email, role, resident_id, is_active, password_hash FROM users WHERE id = ?', [req.session.userId]
     );
     const user = rows[0];
-    if (!user || !user.is_active) {
+    if (!user || !user.is_active || !matchesCredential(req.session.credentialTag,user.password_hash)) {
       return req.session.destroy(error => {
         if (error) return next(error);
         res.status(401).json({ success: false, message: 'Login required' });

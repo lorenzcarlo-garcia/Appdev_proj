@@ -1,0 +1,3 @@
+export const emptyResident={first_name:'',middle_name:'',last_name:'',birth_date:'',contact_no:'',address:''};
+export function residentPayload(form){return {first_name:form.first_name.trim(),middle_name:form.middle_name.trim()||null,last_name:form.last_name.trim(),birth_date:form.birth_date||null,contact_no:form.contact_no.trim()||null,address:form.address.trim(),...(form.expected_token?{expected_token:form.expected_token}:{})};}
+export function residentForm(row){return {...Object.fromEntries(Object.keys(emptyResident).map(key=>[key,row[key]||''])),...(row.edit_token?{expected_token:row.edit_token}:{})};}

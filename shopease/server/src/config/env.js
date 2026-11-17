@@ -16,15 +16,17 @@ if (!/^\d+$/.test(portText) || Number(portText) < 1 || Number(portText) > 65535)
 
 const clientOrigin = process.env.CLIENT_ORIGIN === undefined
   ? 'http://localhost:5173' : process.env.CLIENT_ORIGIN;
-let originUrl;
-try {
-  originUrl = new URL(clientOrigin);
-} catch {
-  throw new Error('CLIENT_ORIGIN must be an HTTP or HTTPS origin');
+function validateOrigin(origin, setting) {
+  let url;
+  try { url = new URL(origin); } catch { throw new Error(`${setting} must contain HTTP or HTTPS origins`); }
+  if (origin.includes('*') || !['http:', 'https:'].includes(url.protocol) || url.origin !== origin) {
+    throw new Error(`${setting} must contain exact HTTP or HTTPS origins without paths or wildcards`);
+  }
+  return origin;
 }
-if (!['http:', 'https:'].includes(originUrl.protocol) || originUrl.origin !== clientOrigin) {
-  throw new Error('CLIENT_ORIGIN must be an HTTP or HTTPS origin without a path');
-}
+validateOrigin(clientOrigin, 'CLIENT_ORIGIN');
+const additionalOrigins = (process.env.ADDITIONAL_CLIENT_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean);
+const clientOrigins = [...new Set([clientOrigin, ...additionalOrigins.map(origin => validateOrigin(origin, 'ADDITIONAL_CLIENT_ORIGINS'))])];
 
 // An empty password is permitted for local MySQL setups; the variable must exist.
 if (process.env.DB_PASSWORD === undefined) {
@@ -41,6 +43,7 @@ module.exports = {
   production: process.env.NODE_ENV === 'production',
   port: Number(portText),
   clientOrigin,
+  clientOrigins,
   database: {
     host: required('DB_HOST'),
     user: required('DB_USER'),

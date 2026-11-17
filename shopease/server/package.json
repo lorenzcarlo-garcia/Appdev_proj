@@ -5,9 +5,10 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "test": "node --test test/auth.test.js",
-    "setup:admin": "node src/scripts/createSuperAdmin.js"
+    "dev": "node --watch src/server.js",
+    "test": "node --test test/auth.test.js test/categories.test.js test/residents.test.js test/reports.test.js test/blotters.test.js test/users.test.js test/attachments.test.js test/communityUpdates.test.js test/changePassword.test.js test/workflows.test.js",
+    "setup:admin": "node src/scripts/createSuperAdmin.js",
+    "recover:password": "node src/scripts/recoverPassword.js"
   },
   "keywords": [],
   "author": "",
@@ -20,10 +21,9 @@
     "express-mysql-session": "^3.0.3",
     "express-rate-limit": "^8.7.4",
     "express-session": "^1.19.0",
-    "mysql2": "^3.24.6"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.14"
+    "multer": "^2.5.0",
+    "mysql2": "^3.24.6",
+    "sharp": "^0.35.5"
   },
   "overrides": {
     "express-mysql-session": {
