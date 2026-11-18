@@ -21,4 +21,8 @@ export const changeReportStatus=(reportId,status,remarks,expected_token)=>data(a
 export const convertReport=(reportId,details)=>data(api.post(`/reports/${id(reportId)}/blotter`,{...details,confirm:true}));
 export const getDashboard=(_params,signal)=>data(api.get('/dashboard',{signal}));
 export const getOwnProfile=(_params,signal)=>data(api.get('/auth/profile',{signal}));
-export const saveOwnProfile=details=>data(api.put('/auth/profile',details));
+export const saveOwnProfile=async details=>{
+  const result=await data(api.put('/auth/profile',details));
+  if(typeof window!=='undefined')window.dispatchEvent(new Event('bantaylog:profile-updated'));
+  return result;
+};

@@ -8,7 +8,7 @@ export default function PhotoUploadControl({disabled=false,onChange}) {
   const camera=useRef(null);
   function select(source) {if(disabled) return;setOpen(false);source.current.click();}
   return <>
-    <button type="button" disabled={disabled} onClick={()=>setOpen(true)} className="flex min-h-36 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-brand/35 bg-canvas px-5 py-6 text-brand hover:border-brand hover:bg-brand/5 disabled:cursor-not-allowed disabled:opacity-50" aria-label="Add report photos" aria-haspopup="dialog" aria-expanded={open}>
+    <button type="button" disabled={disabled} onClick={()=>setOpen(true)} className="flex min-h-36 w-full flex-col items-center justify-center gap-2 rounded-sheet border-2 border-dashed border-brand/35 bg-canvas px-5 py-6 text-brand hover:border-brand hover:bg-brand/5 disabled:cursor-not-allowed disabled:opacity-50" aria-label="Add report photos" aria-haspopup="dialog" aria-expanded={open}>
       <ImagePlus size={32} aria-hidden="true"/><span className="font-semibold">Add photos</span><span className="text-center text-sm text-muted">Tap or click to add a photo</span>
     </button>
     <Modal open={open} onClose={()=>setOpen(false)} title="Add a photo" description="Choose an existing photo, or use your phone camera.">

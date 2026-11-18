@@ -9,7 +9,7 @@ function Preview({file}) {
     image.current.src=url;
     return ()=>URL.revokeObjectURL(url);
   },[file]);
-  return <img ref={image} alt={`Selected photo: ${file.name}`} className="h-40 w-full rounded-lg object-cover"/>;
+  return <img ref={image} alt={`Selected photo: ${file.name}`} className="h-40 w-full rounded-control object-cover"/>;
 }
 export default function PendingPhotoPicker({files,onChange,disabled=false}) {
   const [error,setError]=useState('');
@@ -26,7 +26,7 @@ export default function PendingPhotoPicker({files,onChange,disabled=false}) {
     {error && <Alert variant="error">{error}</Alert>}
     <PhotoUploadControl disabled={disabled || files.length>=3} onChange={choose}/>
     <p className="text-sm text-muted" role="status">{files.length ? `${files.length} of 3 photos selected. They will upload when you save or submit.` : 'No photos selected. You can submit without a photo.'}</p>
-    <div className="grid gap-4 sm:grid-cols-3">{files.map((file,index)=><div key={`${file.name}:${file.lastModified}:${index}`} className="min-w-0 space-y-2 rounded-xl border border-line p-2"><Preview file={file}/><p className="truncate text-xs text-muted">{file.name}</p><Button variant="secondary" disabled={disabled} onClick={()=>{onChange(files.filter((_,position)=>position!==index));setError('');}}>Remove photo</Button></div>)}</div>
+    <div className="grid gap-4 sm:grid-cols-3">{files.map((file,index)=><div key={`${file.name}:${file.lastModified}:${index}`} className="min-w-0 space-y-2 rounded-sheet border border-line p-2"><Preview file={file}/><p className="truncate text-xs text-muted">{file.name}</p><Button variant="secondary" disabled={disabled} onClick={()=>{onChange(files.filter((_,position)=>position!==index));setError('');}}>Remove photo</Button></div>)}</div>
     <p className="text-xs leading-5 text-muted">Camera options depend on your phone or browser. Avoid including unrelated people or personal information.</p>
   </section>;
 }

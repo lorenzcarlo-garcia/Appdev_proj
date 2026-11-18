@@ -24,7 +24,7 @@ function lastLogin(value) {
   return Number.isFinite(date.getTime()) ? dateFormat.format(date) : 'Unavailable';
 }
 function AccessBadge({active}) {
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${active ? 'bg-green-100 text-green-900' : 'bg-slate-100 text-slate-700'}`}>{active ? 'Active' : 'Inactive'}</span>;
+  return <span className={`status-badge ${active ? 'status-resolved' : 'status-draft'}`}>{active ? 'Active' : 'Inactive'}</span>;
 }
 function failureMessage(error, fallback) {
   return typeof error.response?.data?.message === 'string' ? error.response.data.message : fallback;

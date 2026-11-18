@@ -17,7 +17,7 @@ function PrivatePhoto({reportId,photo}) {
     }).catch(() => {if (!controller.signal.aborted) setState({url:'',error:true});});
     return () => {controller.abort();if (url) URL.revokeObjectURL(url);};
   },[reportId,photo.id]);
-  return state.url ? <a href={state.url} target="_blank" rel="noreferrer" aria-label={`Open report photo ${photo.id}`}><img className="h-40 w-full rounded-lg object-cover" src={state.url} alt={`Attached report photo ${photo.id}`} /></a> : <p className="p-5 text-sm text-muted">{state.error ? 'Photo preview unavailable. Reload photos to retry.' : 'Loading photo...'}</p>;
+  return state.url ? <a href={state.url} target="_blank" rel="noreferrer" aria-label={`Open report photo ${photo.id}`}><img className="h-40 w-full rounded-control object-cover" src={state.url} alt={`Attached report photo ${photo.id}`} /></a> : <p className="p-5 text-sm text-muted">{state.error ? 'Photo preview unavailable. Reload photos to retry.' : 'Loading photo...'}</p>;
 }
 export default function PhotoAttachments({reportId,editable=false,disabled=false,onBlocked}) {
   const [photos,setPhotos] = useState([]);
@@ -66,7 +66,7 @@ export default function PhotoAttachments({reportId,editable=false,disabled=false
     {uncertain && <Button variant="secondary" disabled={busy || disabled} onClick={()=>{setLoading(true);setRevision(value=>value+1);}}>Reload photos</Button>}
     {loading && <p className="text-sm text-muted">Loading photos...</p>}
     {!loading && !photos.length && !uncertain && <p className="text-sm text-muted">No photos attached.</p>}
-    <div className="grid gap-4 sm:grid-cols-3">{photos.map(photo=><div key={`${photo.id}:${revision}`} className="min-w-0 space-y-2 rounded-xl border border-line p-2"><PrivatePhoto reportId={reportId} photo={photo}/>{editable && <Button variant="secondary" disabled={busy || disabled || uncertain || loading} onClick={()=>setRemoving(photo.id)}>Remove photo</Button>}</div>)}</div>
+    <div className="grid gap-4 sm:grid-cols-3">{photos.map(photo=><div key={`${photo.id}:${revision}`} className="min-w-0 space-y-2 rounded-sheet border border-line p-2"><PrivatePhoto reportId={reportId} photo={photo}/>{editable && <Button variant="secondary" disabled={busy || disabled || uncertain || loading} onClick={()=>setRemoving(photo.id)}>Remove photo</Button>}</div>)}</div>
     {editable && <div className="space-y-3"><PhotoUploadControl disabled={locked} onChange={choose}/><p className="text-xs leading-5 text-muted">Photos are saved immediately. If an upload fails, reload the photos before submitting your draft.</p></div>}
     <ConfirmDialog open={removing !== null} onCancel={()=>setRemoving(null)} onConfirm={()=>{if (disabled || writing.current) return;const photoId=removing;setRemoving(null);void mutate(()=>removeAttachment(reportId,photoId));}} title="Remove photo?" description="This removes the selected photo from your report. You can attach another while the report is editable." confirmLabel="Remove photo" dangerous busy={busy || disabled}/>
   </section>;

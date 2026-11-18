@@ -73,7 +73,7 @@ export default function MyReportsPage() {
       <section className="panel space-y-5 p-4 sm:p-5" aria-label="Report filters">
         <FilterSelect label="Records to show" value={view} onChange={event => update({view:event.target.value,page:1,status:'all'})} options={views} />
         <SearchBar label="Search your reports by title, reference, location or category" placeholder="Search your reports" value={search} onChange={event => update({q:event.target.value,page:1},true)} />
-        {showStatus && <fieldset><legend className="mb-2 text-sm font-semibold">Status</legend><div className="flex flex-wrap gap-2">{groups.map(group => <Button key={group.value} variant={status === group.value ? 'primary' : 'secondary'} className="rounded-full" aria-pressed={status === group.value} onClick={() => update({status:group.value,page:1})}>{group.label}</Button>)}</div></fieldset>}
+        {showStatus && <fieldset><legend className="mb-2 text-sm font-semibold">Status</legend><div className="flex flex-wrap gap-2">{groups.map(group => <Button key={group.value} variant={status === group.value ? 'primary' : 'secondary'} className="rounded-control" aria-pressed={status === group.value} onClick={() => update({status:group.value,page:1})}>{group.label}</Button>)}</div></fieldset>}
         <p className="text-xs leading-5 text-muted">Search and status filters apply across all your records in this view. Open means Submitted; Ongoing includes Under Investigation and Scheduled for Action.</p>
       </section>
       {ready && state.categoryWarning && <Alert>{state.categoryWarning}</Alert>}

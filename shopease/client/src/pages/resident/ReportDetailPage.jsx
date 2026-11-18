@@ -56,7 +56,7 @@ export default function ReportDetailPage() {
   const successNotice = ['Report submitted successfully.','Report changes saved.'].includes(location.state?.notice) ? location.state.notice : '';
   const categoryName = report.category_id === null ? 'Not selected' : state.category?.name || `Category unavailable (#${report.category_id})`;
   return <>
-    <PageHeader title={report.title || (draft ? 'Untitled draft' : 'Untitled report')} description={report.reference_no || 'Private draft - no official reference number yet'} action={<div className="flex flex-wrap gap-3">{backLink}{editable && <Link className="button button-primary" to={`/resident/reports/${report.id}/edit`}>{draft ? 'Continue Draft' : 'Edit report'}</Link>}</div>} />
+    <PageHeader title={report.title || (draft ? 'Untitled draft' : 'Untitled report')} description={<span className="reference-stamp">{report.reference_no || 'Private draft - no official reference number yet'}</span>} action={<div className="flex flex-wrap gap-3">{backLink}{editable && <Link className="button button-primary" to={`/resident/reports/${report.id}/edit`}>{draft ? 'Continue Draft' : 'Edit report'}</Link>}</div>} />
     <div className="space-y-5">
       <WriteFeedback action={action} onReload={()=>setRevision(value=>value+1)}/>
       {!cancelled && !draft && report.status==='Submitted' && <div><Button variant="secondary" disabled={action.busy} onClick={()=>{action.reset();setConfirmCancel(true);}}>Cancel this report</Button></div>}

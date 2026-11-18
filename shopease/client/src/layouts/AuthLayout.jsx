@@ -1,27 +1,21 @@
-import { ShieldCheck } from 'lucide-react';
-export default function AuthLayout({ title, description, children, footer, wide = false }) {
-  return <div className="auth-background grid min-h-dvh place-items-center px-4 py-8 sm:px-8 sm:py-12">
+import ServiceIdentity from '../components/ui/ServiceIdentity';
+import churchPhoto from '../assets/branding/church.jpg';
+export default function AuthLayout({title,description,children,footer,wide=false}) {
+  return <div className="auth-background min-h-dvh px-4 py-6 sm:px-8 sm:py-10 lg:py-12">
     <a href="#main-content" className="skip-link">Skip to main content</a>
-    <div className={`mx-auto w-full ${wide ? 'max-w-[1160px]' : 'max-w-[1040px]'}`}>
-      <header className="mb-6 flex items-center justify-center gap-2.5 text-brand lg:hidden"><ShieldCheck size={28} aria-hidden="true" /><p className="text-2xl font-bold tracking-tight">BantayLog</p></header>
-      <main id="main-content" tabIndex={-1} className={`auth-shell mx-auto grid w-full min-w-0 ${wide ? 'max-w-[640px] lg:max-w-none lg:grid-cols-[0.85fr_1.15fr]' : 'max-w-[440px] lg:max-w-none lg:grid-cols-[0.95fr_1.05fr]'}`}>
-        <aside className="auth-art m-3 hidden min-w-0 rounded-[22px] p-8 text-white lg:block" aria-label="About BantayLog">
-          <div className="sticky top-10 flex min-h-[530px] flex-col justify-between gap-16">
-            <div className="flex items-center gap-3 self-start rounded-xl bg-brand-dark/90 px-4 py-3"><ShieldCheck size={33} strokeWidth={1.7} aria-hidden="true" /><p className="text-xl font-bold tracking-tight">BantayLog</p></div>
-            <div className="max-w-[320px]"><p className="mb-4 text-xs font-semibold tracking-[0.16em] text-teal-100 uppercase">Connected communities</p><p className="text-[36px] leading-[1.15] font-semibold tracking-tight">Your community.<br />Your concerns.<br />One place.</p><p className="mt-5 max-w-[280px] text-sm leading-6 text-teal-50">Report local concerns and follow their progress with your barangay.</p></div>
+    <div className={`mx-auto w-full ${wide?'max-w-[1080px]':'max-w-[960px]'}`}>
+      <header className="service-masthead mb-7 flex items-center justify-between gap-4 pb-5 sm:mb-10"><ServiceIdentity/><p className="hidden text-right text-xs leading-6 text-muted sm:block">Barangay services<br/>Incident reporting &amp; blotter records</p></header>
+      <main id="main-content" tabIndex={-1} className="auth-shell grid min-w-0 lg:grid-cols-[0.85fr_1.15fr]">
+        <aside className="auth-art flex min-w-0 flex-col overflow-hidden" aria-label="About BantayLog">
+          <img src={churchPhoto} alt="Church facade and bell tower" width="1140" height="660" fetchPriority="high" className="block h-auto w-full" />
+          <div className="hidden flex-1 flex-col justify-between gap-10 p-8 lg:flex">
+            <div><p className="eyebrow text-brand">Barangay service desk</p><h2 className="mt-5 text-[32px] leading-[1.18] font-normal text-brand-dark">A record of your concern.<br/>A way to follow up.</h2><p className="mt-5 max-w-[30ch] text-sm leading-7 text-ink">Report an incident, keep your reference number and follow the barangay's response.</p></div>
+            <div className="border-t border-rule pt-6"><p className="eyebrow mb-3">Your information</p><p className="max-w-[32ch] text-sm leading-7 text-muted">Your reports are available to you and authorized barangay personnel.</p></div>
           </div>
         </aside>
-        <section className="flex min-w-0 flex-col justify-center px-6 py-7 sm:px-9 sm:py-9 lg:px-12 lg:py-12">
-          <div className="mx-auto w-full max-w-[520px]">
-            <div className="mb-6 hidden items-center gap-2 text-brand lg:flex"><ShieldCheck size={22} aria-hidden="true" /><span className="text-xs font-semibold tracking-wide">BARANGAY RESIDENT SERVICES</span></div>
-            <h1 className="text-[28px] leading-tight font-bold tracking-tight">{title}</h1>
-            <p className="mt-3 max-w-md text-sm leading-6 text-muted">{description || 'Welcome back. Sign in to access your barangay portal.'}</p>
-            <div className="mt-7">{children}</div>
-            {footer && <div className="mt-7 border-t border-line/70 pt-5 text-center text-sm leading-6 text-muted">{footer}</div>}
-          </div>
-        </section>
+        <section className="min-w-0 px-5 py-7 sm:px-9 sm:py-10 lg:px-11 lg:py-12"><div className="mx-auto max-w-[520px]"><p className="eyebrow mb-4">Resident &amp; personnel access</p><h1 className="text-[30px] leading-tight font-semibold text-brand-dark sm:text-[36px]">{title}</h1><p className="mt-3 text-sm leading-7 text-muted">{description || 'Sign in using your registered email and password.'}</p><div className="mt-8">{children}</div>{footer && <div className="mt-7 border-t border-line pt-5 text-sm leading-7 text-muted">{footer}</div>}</div></section>
       </main>
-      <footer className="mt-6 text-center text-xs leading-6 text-muted">Barangay incident reporting and blotter management.</footer>
+      <footer className="mt-6 flex flex-wrap justify-between gap-2 text-xs leading-6 text-muted"><p>BantayLog / Barangay records</p><p>Incident reports and official blotter records</p></footer>
     </div>
   </div>;
 }
