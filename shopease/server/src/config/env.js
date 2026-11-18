@@ -39,6 +39,10 @@ if (Buffer.byteLength(sessionSecret, 'utf8') < 32) {
 }
 
 module.exports = {
+  gmail: {
+    user: process.env.GMAIL_USER?.trim() || '',
+    appPassword: process.env.GMAIL_APP_PASSWORD?.replace(/\s/g,'') || '',
+  },
   sessionSecret,
   production: process.env.NODE_ENV === 'production',
   port: Number(portText),

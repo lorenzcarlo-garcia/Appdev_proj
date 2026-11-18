@@ -60,7 +60,7 @@ export default function MyReportsPage() {
   const returnPath = '/resident/reports' + (params.toString() ? '?' + params.toString() : '');
   const detailLink = report => <Link className="text-link wrap-anywhere" to={`/resident/reports/${report.id}`} state={{from:returnPath}}>{report.title || (report.submission_stage === 'Draft' ? 'Untitled draft' : 'Untitled report')}</Link>;
   const columns = [
-    {key:'reference_no',label:'Reference',render:report => report.reference_no || 'Private draft'},
+    {key:'resident_report_no',label:'Report ID',render:report => report.resident_report_no ? `Report ID ${report.resident_report_no}` : 'Private draft'},
     {key:'title',label:'Title',render:detailLink},
     {key:'category_id',label:'Category',render:categoryName},
     {key:'created_at',label:'Created',render:report => formatDate(report.created_at)},
@@ -72,14 +72,14 @@ export default function MyReportsPage() {
     <div className="space-y-5">
       <section className="panel space-y-5 p-4 sm:p-5" aria-label="Report filters">
         <FilterSelect label="Records to show" value={view} onChange={event => update({view:event.target.value,page:1,status:'all'})} options={views} />
-        <SearchBar label="Search your reports by title, reference, location or category" placeholder="Search your reports" value={search} onChange={event => update({q:event.target.value,page:1},true)} />
+        <SearchBar label="Search your reports by title, report ID, location or category" placeholder="Search your reports" value={search} onChange={event => update({q:event.target.value,page:1},true)} />
         {showStatus && <fieldset><legend className="mb-2 text-sm font-semibold">Status</legend><div className="flex flex-wrap gap-2">{groups.map(group => <Button key={group.value} variant={status === group.value ? 'primary' : 'secondary'} className="rounded-control" aria-pressed={status === group.value} onClick={() => update({status:group.value,page:1})}>{group.label}</Button>)}</div></fieldset>}
         <p className="text-xs leading-5 text-muted">Search and status filters apply across all your records in this view. Open means Submitted; Ongoing includes Under Investigation and Scheduled for Action.</p>
       </section>
       {ready && state.categoryWarning && <Alert>{state.categoryWarning}</Alert>}
       {ready && state.error ? <ErrorState message={state.error} onRetry={() => setRevision(value => value + 1)} /> : <section className="panel md:overflow-hidden" aria-label="Your reports">
         {ready && <p role="status" className="border-b border-line px-4 py-3 text-sm text-muted">{state.total} matching {state.total===1?'record':'records'}.</p>}
-        {<DataTable columns={columns} rows={filtered} loading={!ready} caption="My reports" emptyTitle={search || status!=='all'?'No matching reports':emptyTitle} renderCard={report => <div className="space-y-3"><div className="flex flex-wrap justify-between gap-2 text-xs text-muted"><span className="wrap-anywhere">{report.reference_no || 'Private draft'}</span><span>{formatDate(report.created_at)}</span></div><h2 className="text-base leading-6 font-semibold">{detailLink(report)}</h2><p className="text-sm text-muted">{categoryName(report)}</p><StatusBadge status={label(report)} /></div>} />}
+        {<DataTable columns={columns} rows={filtered} loading={!ready} caption="My reports" emptyTitle={search || status!=='all'?'No matching reports':emptyTitle} renderCard={report => <div className="space-y-3"><div className="flex flex-wrap justify-between gap-2 text-xs text-muted"><span className="wrap-anywhere">{report.resident_report_no ? `Report ID ${report.resident_report_no}` : 'Private draft'}</span><span>{formatDate(report.created_at)}</span></div><h2 className="text-base leading-6 font-semibold">{detailLink(report)}</h2><p className="text-sm text-muted">{categoryName(report)}</p><StatusBadge status={label(report)} /></div>} />}
         {ready && <Pagination page={page} pageSize={20} total={state.total} onPageChange={next => update({page:next})} />}
       </section>}
     </div>

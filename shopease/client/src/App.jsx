@@ -15,6 +15,7 @@ import { useAuth } from './hooks/useAuth';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './layouts/AppLayout';
 import LoginPage from './pages/LoginPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import RegisterPage from './pages/RegisterPage';
 import StaffAccountsPage from './pages/admin/StaffAccountsPage';
 import MyReportsPage from './pages/resident/MyReportsPage';
@@ -41,6 +42,7 @@ export function AppRoutes() {
     <Route path="/" element={<HomeRedirect />} />
     <Route element={<PublicOnly />}>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/register" element={<RegisterPage />} />
     </Route>
     <Route element={<ProtectedRoute roles={['resident']} />}>

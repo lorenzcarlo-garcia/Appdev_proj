@@ -3,7 +3,7 @@ import {Search,ClipboardPlus,UserRound,ArrowUpRight} from 'lucide-react';
 import PageHeader from '../../components/ui/PageHeader';
 import CommunityUpdatesPanel from '../../components/community/CommunityUpdatesPanel';
 const services = [
-  {to:'/resident/reports',title:'Find your reports',description:'Search your concerns and follow the latest status updates.',icon:Search},
+  {to:'/resident/reports',title:'Find your reports',description:'Find your Report ID and follow the latest status updates.',icon:Search},
   {to:'/resident/reports/new',title:'Report a concern',description:'Tell the barangay what happened. Add photos or save a draft.',icon:ClipboardPlus},
   {to:'/resident/profile',title:'Your resident profile',description:'Keep your contact information and resident details up to date.',icon:UserRound},
 ];

@@ -9,7 +9,7 @@ export default function AuthLayout({title,description,children,footer,wide=false
         <aside className="auth-art flex min-w-0 flex-col overflow-hidden" aria-label="About BantayLog">
           <img src={churchPhoto} alt="Church facade and bell tower" width="1140" height="660" fetchPriority="high" className="block h-auto w-full" />
           <div className="hidden flex-1 flex-col justify-between gap-10 p-8 lg:flex">
-            <div><p className="eyebrow text-brand">Barangay service desk</p><h2 className="mt-5 text-[32px] leading-[1.18] font-normal text-brand-dark">A record of your concern.<br/>A way to follow up.</h2><p className="mt-5 max-w-[30ch] text-sm leading-7 text-ink">Report an incident, keep your reference number and follow the barangay's response.</p></div>
+            <div><p className="eyebrow text-brand">Barangay service desk</p><h2 className="mt-5 text-[32px] leading-[1.18] font-normal text-brand-dark">A record of your concern.<br/>A way to follow up.</h2><p className="mt-5 max-w-[30ch] text-sm leading-7 text-ink">Report an incident, keep your Report ID and follow the barangay's response.</p></div>
             <div className="border-t border-rule pt-6"><p className="eyebrow mb-3">Your information</p><p className="max-w-[32ch] text-sm leading-7 text-muted">Your reports are available to you and authorized barangay personnel.</p></div>
           </div>
         </aside>

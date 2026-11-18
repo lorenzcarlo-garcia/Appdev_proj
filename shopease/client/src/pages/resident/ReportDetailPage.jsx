@@ -56,17 +56,17 @@ export default function ReportDetailPage() {
   const successNotice = ['Report submitted successfully.','Report changes saved.'].includes(location.state?.notice) ? location.state.notice : '';
   const categoryName = report.category_id === null ? 'Not selected' : state.category?.name || `Category unavailable (#${report.category_id})`;
   return <>
-    <PageHeader title={report.title || (draft ? 'Untitled draft' : 'Untitled report')} description={<span className="reference-stamp">{report.reference_no || 'Private draft - no official reference number yet'}</span>} action={<div className="flex flex-wrap gap-3">{backLink}{editable && <Link className="button button-primary" to={`/resident/reports/${report.id}/edit`}>{draft ? 'Continue Draft' : 'Edit report'}</Link>}</div>} />
+    <PageHeader title={report.title || (draft ? 'Untitled draft' : 'Untitled report')} description={<span className="reference-stamp">{report.resident_report_no ? `Report ID ${report.resident_report_no}` : 'Private draft - no Report ID yet'}</span>} action={<div className="flex flex-wrap gap-3">{backLink}{editable && <Link className="button button-primary" to={`/resident/reports/${report.id}/edit`}>{draft ? 'Continue Draft' : 'Edit report'}</Link>}</div>} />
     <div className="space-y-5">
       <WriteFeedback action={action} onReload={()=>setRevision(value=>value+1)}/>
-      {!cancelled && !draft && report.status==='Submitted' && <div><Button variant="secondary" disabled={action.busy} onClick={()=>{action.reset();setConfirmCancel(true);}}>Cancel this report</Button></div>}
+      {editable && <div><Button variant="secondary" disabled={action.busy} onClick={()=>{action.reset();setConfirmCancel(true);}}>{draft?'Cancel this draft':'Cancel this report'}</Button></div>}
       {successNotice && <Alert variant="success">{successNotice}</Alert>}
-      {draft && <Alert>This draft is private. Processing history begins when it is submitted.</Alert>}
-      {cancelled && <Alert>This report was cancelled and is retained for your records.</Alert>}
+      {draft && <Alert>{cancelled?'This cancelled draft remains private. It was never submitted and has no Report ID.':'This draft is private. Processing history begins when it is submitted.'}</Alert>}
+      {cancelled && <Alert>{draft?'This draft was cancelled and is retained for your records.':'This report was cancelled and is retained for your records.'}</Alert>}
       {!cancelled && report.status === 'Resolved' && <Alert variant="success">This report is resolved and cannot be reopened.</Alert>}
       {state.categoryWarning && <Alert>{state.categoryWarning}</Alert>}
       <section className="panel p-5 sm:p-6" aria-labelledby="report-information-title"><h2 id="report-information-title" className="mb-5 text-lg font-semibold">Report information</h2><dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
-        <div><dt className="text-sm text-muted">Status</dt><dd className="mt-2"><StatusBadge status={badge} />{cancelled && <p className="mt-2 text-xs text-muted">Last processing status: {report.status}</p>}</dd></div>
+        <div><dt className="text-sm text-muted">Status</dt><dd className="mt-2"><StatusBadge status={badge} />{cancelled && !draft && <p className="mt-2 text-xs text-muted">Last processing status: {report.status}</p>}</dd></div>
         <div><dt className="text-sm text-muted">Category</dt><dd className="mt-2 text-sm font-medium wrap-anywhere">{categoryName}</dd></div>
         <div><dt className="text-sm text-muted">Incident date and time</dt><dd className="mt-2 text-sm font-medium">{formatDateTime(report.incident_date)}</dd></div>
         <div><dt className="text-sm text-muted">Created</dt><dd className="mt-2 text-sm font-medium">{formatDateTime(report.created_at)}</dd></div>
@@ -77,6 +77,6 @@ export default function ReportDetailPage() {
       <section className="panel p-5 sm:p-6"><PhotoAttachments key={report.id} reportId={report.id}/></section>
       <section className="panel p-5 sm:p-6" aria-labelledby="report-history-title"><h2 id="report-history-title" className="mb-5 text-lg font-semibold">Status history and staff remarks</h2><StatusTimeline entries={state.history} formatDate={formatDateTime} /></section>
     </div>
-    <ConfirmDialog error={action.error} open={confirmCancel} title="Cancel this report?" description="This cancellation is final. Your report is retained, but barangay processing will stop. File a new report if you need to raise the concern again." confirmLabel="Cancel report" dangerous busy={action.busy} onCancel={()=>{if(!action.busy)setConfirmCancel(false);}} onConfirm={()=>void action.run(()=>cancelReport(id),()=>{setConfirmCancel(false);setRevision(value=>value+1);})}/>
+    <ConfirmDialog error={action.error} open={confirmCancel} title={draft?'Cancel this draft?':'Cancel this report?'} description={draft?'This cancellation is final. Your draft and photos remain private and are retained in your Cancelled reports. It will not be submitted or given a Report ID.':'This cancellation is final. Your report is retained, but barangay processing will stop. File a new report if you need to raise the concern again.'} confirmLabel={draft?'Cancel draft':'Cancel report'} dangerous busy={action.busy} onCancel={()=>{if(!action.busy)setConfirmCancel(false);}} onConfirm={()=>void action.run(()=>cancelReport(id),()=>{setConfirmCancel(false);setRevision(value=>value+1);})}/>
   </>;
 }

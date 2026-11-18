@@ -44,20 +44,20 @@ export default function AppLayout({ variant = 'admin', children }) {
   }
   return <div className="workspace-background min-h-dvh">
     <a href="#main-content" className="skip-link">Skip to main content</a>
-    <div className="workspace-frame mx-auto flex min-h-dvh max-w-[1440px] border-x border-line">
+    <div className="workspace-frame flex min-h-dvh w-full">
       <div className="min-w-0 flex-1">
-        <header className="lake-masthead relative isolate flex min-h-36 flex-wrap items-center justify-between gap-3 overflow-hidden px-4 py-6 sm:min-h-44 sm:px-8 sm:py-8">
+        <header className="lake-masthead relative isolate grid min-h-36 grid-cols-1 items-center gap-4 overflow-hidden px-4 py-6 sm:min-h-44 sm:px-8 sm:py-8 md:flex md:flex-wrap md:justify-between">
           <div className="absolute inset-0 -z-10" aria-hidden="true"><img src={lakePhoto} alt="" width="900" height="600" className="h-full w-full object-cover object-[center_55%]" /><div className="absolute inset-0 bg-[#062f2d]/65" /></div>
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <Button variant="ghost" onClick={() => setMenuOpen(true)} aria-label="Open feature menu" aria-haspopup="dialog" aria-expanded={menuOpen} aria-controls={menuId} className="shrink-0 px-3"><Menu size={23} aria-hidden="true" /></Button>
             <div className="min-w-0"><ServiceIdentity compact tone="light"/><p className="mt-1 hidden text-xs text-white sm:block">{resident ? 'Resident portal' : 'Barangay workspace'}</p></div>
           </div>
-          <div className="ml-auto flex max-w-full shrink-0 items-center gap-2 sm:gap-3">
+          <div className="masthead-actions">
             {user.role==='resident' ? <ResidentVerification/> : <span className="hidden border-l border-white/40 px-4 py-2 text-xs font-semibold tracking-wide text-white lg:inline-flex">{roleLabels[user.role]}</span>}
             <Button variant="ghost" onClick={handleLogout} busy={loggingOut}><LogOut size={17} aria-hidden="true" /><span>Log out</span></Button>
           </div>
         </header>
-        <main id="main-content" tabIndex={-1} className="workspace-content mx-auto max-w-[1360px] px-4 py-7 sm:px-8 sm:py-10">{error && <div className="mb-5"><Alert variant="error">{error}</Alert></div>}{children || <Outlet />}</main>
+        <main id="main-content" tabIndex={-1} className="workspace-content">{error && <div className="mb-5"><Alert variant="error">{error}</Alert></div>}{children || <Outlet />}</main>
       </div>
     </div>
     <Modal id={menuId} placement="drawer" open={menuOpen} onClose={() => setMenuOpen(false)} title="BantayLog menu"><Navigation links={links} onSelect={() => setMenuOpen(false)} /></Modal>

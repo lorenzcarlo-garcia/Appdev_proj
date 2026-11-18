@@ -59,7 +59,7 @@ export default function LoginPage() {
       <form ref={formRef} noValidate onSubmit={submit} aria-label="Log in" aria-busy={busy || undefined} className="space-y-5">
         <FormField id="login-email" label="Email" error={errors.email} required><input type="email" name="email" autoComplete="username" inputMode="email" autoCapitalize="none" spellCheck={false} maxLength={150} value={form.email} onChange={change} disabled={busy} placeholder="you@example.com" /></FormField>
         <FormField id="login-password" label="Password" error={errors.password} required><input type="password" name="password" autoComplete="current-password" minLength={12} maxLength={128} value={form.password} onChange={change} disabled={busy} placeholder="Enter your password" /></FormField>
-        <p className="text-sm leading-6 text-muted">Forgot your password? Contact your barangay administrator for account recovery.</p>
+        <Link to="/forgot-password" className="text-link">Forgot your password?</Link>
         <Button type="submit" busy={busy} className="w-full">Log in</Button>
       </form>
     </div>

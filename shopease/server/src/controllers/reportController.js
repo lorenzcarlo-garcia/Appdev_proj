@@ -17,9 +17,9 @@ module.exports = db => {
       const clauses=[];const params=[];
       if(req.user.role==='resident') {clauses.push('user_id = ?');params.push(req.user.id);}
       else {if(view==='drafts') throw new ReportError(403,'Private drafts are not accessible');clauses.push("submission_stage = 'Submitted'");}
-      if(view==='drafts') clauses.push("submission_stage = 'Draft'");
+      if(view==='drafts') clauses.push("submission_stage = 'Draft' AND cancelled_at IS NULL");
       if(view==='active') clauses.push("submission_stage = 'Submitted' AND cancelled_at IS NULL");
-      if(view==='cancelled') clauses.push("submission_stage = 'Submitted' AND cancelled_at IS NOT NULL");
+      if(view==='cancelled') clauses.push('cancelled_at IS NOT NULL');
       if(category_id!==undefined){clauses.push('category_id = ?');params.push(Number(category_id));}
       if(status){clauses.push('status = ?');params.push(status);}
       if(status_group!=='all'){
@@ -30,7 +30,8 @@ module.exports = db => {
       }
       if(search.trim()){
         const pattern='%'+search.trim().replace(/[!%_]/g,value=>'!'+value)+'%';
-        clauses.push("(CONCAT_WS(' ', title, reference_no, location, description) LIKE ? ESCAPE '!' OR EXISTS (SELECT 1 FROM incident_categories WHERE incident_categories.id = incident_reports.category_id AND incident_categories.name LIKE ? ESCAPE '!'))");params.push(pattern,pattern);
+        const searchableFields=req.user.role==='resident'?'title, CAST(resident_report_no AS CHAR), location, description':'title, reference_no, location, description';
+        clauses.push(`(CONCAT_WS(' ', ${searchableFields}) LIKE ? ESCAPE '!' OR EXISTS (SELECT 1 FROM incident_categories WHERE incident_categories.id = incident_reports.category_id AND incident_categories.name LIKE ? ESCAPE '!'))`);params.push(pattern,pattern);
       }
       const where=clauses.length?' WHERE '+clauses.join(' AND '):'';
       const [counts]=await db.execute('SELECT COUNT(*) AS total FROM incident_reports'+where,params);

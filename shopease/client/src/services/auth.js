@@ -18,3 +18,11 @@ export async function logoutSession() {
 export async function changeOwnPassword(details) {
   await api.post('/auth/change-password',{current_password:details.current_password,new_password:details.new_password,confirm_password:details.confirm_password});
 }
+export async function requestPasswordReset(email){
+  const {data}=await api.post('/auth/forgot-password',{email});
+  return data;
+}
+export async function resetForgottenPassword(details){
+  const {data}=await api.post('/auth/reset-password',details);
+  return data;
+}

@@ -1,4 +1,5 @@
 import OwnProfile from '../components/residents/OwnProfile';
+import OwnStaffProfile from '../components/staff/OwnStaffProfile';
 import {useEffect,useRef,useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {useAuth} from '../hooks/useAuth';
@@ -30,10 +31,10 @@ export default function AccountPage(){
       setError(unconfirmed?'We could not confirm the password change. Use Log out, then check whether you can log in with your new password before trying again.':authErrorMessage(failure,'We could not change your password. Please try again.'));
     }}finally{writing.current=false;if(mounted.current)setBusy(false);}
   }
-  return <><PageHeader title="My account" description="Manage the password you use to sign in to BantayLog."/>
+  return <><PageHeader title="My account" description="Manage your personal information and sign-in password."/>
     <div className="mx-auto max-w-2xl space-y-5">
       <section className="panel p-5 sm:p-7" aria-label="Account information"><dl className="space-y-4"><div><dt className="text-sm text-muted">Email</dt><dd className="mt-1 font-medium wrap-anywhere">{user.email}</dd></div><div><dt className="text-sm text-muted">Account role</dt><dd className="mt-1 font-medium">{labels[user.role]}</dd></div></dl></section>
-      {user.role==='resident' && <OwnProfile/>}
+      {user.role==='resident' ? <OwnProfile/> : <OwnStaffProfile/>}
       <section className="panel p-5 sm:p-7" aria-labelledby="change-password-title"><h2 id="change-password-title" className="text-lg font-semibold">Change password</h2><p className="mt-2 text-sm leading-6 text-muted">Choose a unique password with 12-128 characters. After changing it, you will be signed out on this device and your other devices.</p>
         <form ref={formRef} noValidate onSubmit={submit} aria-label="Change password" aria-busy={busy || undefined} className="mt-6 space-y-5">
           {error && <Alert variant="error">{error}</Alert>}

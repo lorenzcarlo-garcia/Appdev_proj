@@ -1,5 +1,5 @@
 const {guardEdit,editToken,reportKeys}=require('./editToken');
-const fields = "id, reference_no, user_id, category_id, title, description, location, DATE_FORMAT(incident_date, '%Y-%m-%dT%H:%i:%s') AS incident_date, submission_stage, status, cancelled_at, cancelled_by, created_at, updated_at";
+const fields = "id, reference_no, resident_report_no, user_id, category_id, title, description, location, DATE_FORMAT(incident_date, '%Y-%m-%dT%H:%i:%s') AS incident_date, submission_stage, status, cancelled_at, cancelled_by, created_at, updated_at";
 const contentKeys = ['category_id','title','description','location','incident_date'];
 const validId = value => /^[1-9]\d*$/.test(value) && Number(value) <= 4294967295;
 class ReportError extends Error {
@@ -53,11 +53,15 @@ function reportService(db) {
   }
   async function finalize(connection,id,userId,data) {
     await category(connection,data.category_id,true);
+    // Serializes submissions by the same resident; allocation rolls back on failure.
+    await connection.execute('INSERT INTO resident_report_counters (user_id, last_report_no) VALUES (?, 1) ON DUPLICATE KEY UPDATE last_report_no = last_report_no + 1',[userId]);
+    const [counters]=await connection.execute('SELECT last_report_no FROM resident_report_counters WHERE user_id = ? FOR UPDATE',[userId]);
+    const residentNumber=Number(counters[0].last_report_no);
     const year=new Intl.DateTimeFormat('en-US',{year:'numeric',timeZone:'Asia/Manila'}).format(new Date());
     const reference='RPT-'+year+'-'+String(id).padStart(6,'0');
-    await connection.execute('UPDATE incident_reports SET submission_stage = ?, status = ?, reference_no = ? WHERE id = ?', ['Submitted','Submitted',reference,id]);
+    await connection.execute('UPDATE incident_reports SET submission_stage = ?, status = ?, reference_no = ?, resident_report_no = ? WHERE id = ?', ['Submitted','Submitted',reference,residentNumber,id]);
     await connection.execute('INSERT INTO report_status_history (report_id, old_status, new_status, changed_by, remarks) VALUES (?, ?, ?, ?, ?)',[id,null,'Submitted',userId,null]);
-    return {id,reference_no:reference,submission_stage:'Submitted',status:'Submitted'};
+    return {id,reference_no:reference,resident_report_no:residentNumber,submission_stage:'Submitted',status:'Submitted'};
   }
   async function changeStatus(id, actor, body) {
     const nextStatus = {'Submitted':'Under Investigation','Under Investigation':'Scheduled for Action','Scheduled for Action':'Resolved'};
@@ -83,7 +87,7 @@ function reportService(db) {
         await category(connection,data.category_id,submit);
         const [result]=await connection.execute('INSERT INTO incident_reports (user_id, category_id, title, description, location, incident_date) VALUES (?, ?, ?, ?, ?, ?)',[userId,...values(data)]);
         if(submit) return finalize(connection,result.insertId,userId,data);
-        return {id:result.insertId,reference_no:null,submission_stage:'Draft',status:null};
+        return {id:result.insertId,reference_no:null,resident_report_no:null,submission_stage:'Draft',status:null};
       });
     },
     save: (id,userId,body) => transaction(async connection=>{
@@ -105,9 +109,9 @@ function reportService(db) {
     }),
     cancel: (id,userId) => transaction(async connection=>{
       const row=await owned(connection,id,userId);
-      if(row.submission_stage!=='Submitted' || row.status!=='Submitted' || row.cancelled_at) fail(409,'Only an active Submitted report can be cancelled');
+      if(row.cancelled_at || !(row.submission_stage==='Draft' || (row.submission_stage==='Submitted' && row.status==='Submitted'))) fail(409,'Only an active draft or Submitted report can be cancelled');
       await connection.execute('UPDATE incident_reports SET cancelled_at = CURRENT_TIMESTAMP, cancelled_by = ? WHERE id = ?', [userId,id]);
-      return {id,message:'Report cancelled'};
+      return {id,message:row.submission_stage==='Draft'?'Draft cancelled':'Report cancelled'};
     })
   };
 }

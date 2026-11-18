@@ -8,10 +8,10 @@ const config={clientOrigin:'http://localhost:5173',sessionSecret:'synthetic-repo
 const roles=['resident','resident','staff','secretary','captain','super_admin'];
 const form={category_id:1,title:'Fictional concern',description:'Test details',location:'Test location',incident_date:'2026-01-15T12:30:00'};
 function seed(state,overrides={}) {
-  const row={id:state.reports.length+1,user_id:1,...form,reference_no:null,submission_stage:'Draft',status:null,cancelled_at:null,cancelled_by:null,...overrides};state.reports.push(row);return row;
+  const row={id:state.reports.length+1,user_id:1,...form,reference_no:null,resident_report_no:null,submission_stage:'Draft',status:null,cancelled_at:null,cancelled_by:null,...overrides};state.reports.push(row);return row;
 }
 async function fixture(t) {
-  const state={reports:[],history:[],categories:[{id:1,is_active:1},{id:2,is_active:0}],calls:[],failHistory:false,rollbacks:0,releases:0};
+  const state={reports:[],history:[],counters:{},categories:[{id:1,is_active:1},{id:2,is_active:0}],calls:[],failHistory:false,rollbacks:0,releases:0};
   let queue=Promise.resolve();
   function filter(sql,args) {
     let rows=state.reports;
@@ -25,6 +25,8 @@ async function fixture(t) {
   }
   async function execute(sql,args) {
     state.calls.push({sql,args});
+    if(sql.startsWith('INSERT INTO resident_report_counters')){state.counters[args[0]]=(state.counters[args[0]]||0)+1;return [{affectedRows:1}];}
+    if(sql.startsWith('SELECT last_report_no FROM resident_report_counters'))return [[{last_report_no:state.counters[args[0]]}]];
     if(sql.startsWith('SELECT id, email')) return [[{id:args[0],password_hash:'synthetic-resource-hash',email:'test@example.invalid',role:roles[args[0]-1],resident_id:args[0]<=2?args[0]:null,is_active:1}]];
     if(sql.includes('FROM incident_categories')) return [state.categories.filter(row=>row.id===args[0])];
     if(sql.startsWith('SELECT') && sql.includes('FROM report_status_history')) return [state.history.filter(row=>row.report_id===args[0])];
@@ -43,7 +45,7 @@ async function fixture(t) {
       state.history.push({report_id:args[0],old_status:args[1],new_status:args[2],changed_by:args[3],remarks:args[4]});return [{insertId:state.history.length}];
     }
     const row=state.reports.find(item=>item.id===args.at(-1));
-    if(sql.startsWith('UPDATE incident_reports SET submission_stage')) [row.submission_stage,row.status,row.reference_no]=args;
+    if(sql.startsWith('UPDATE incident_reports SET submission_stage')) [row.submission_stage,row.status,row.reference_no,row.resident_report_no]=args;
     else if(sql.startsWith('UPDATE incident_reports SET category_id')) [row.category_id,row.title,row.description,row.location,row.incident_date]=args;
     else if(sql.startsWith('UPDATE incident_reports SET cancelled_at')) {row.cancelled_at='synthetic cancellation time';row.cancelled_by=args[0];}
     else throw new Error('Unexpected report SQL');
@@ -52,8 +54,8 @@ async function fixture(t) {
   const db={query:async()=>[[{result:1}]],execute,getConnection:async()=>{
     let unlock,snapshot;
     return {execute,
-      beginTransaction:async()=>{const previous=queue;queue=new Promise(resolve=>{unlock=resolve;});await previous;snapshot=structuredClone({reports:state.reports,history:state.history});},
-      commit:async()=>{unlock();},rollback:async()=>{state.rollbacks++;state.reports=snapshot.reports;state.history=snapshot.history;unlock();},release:()=>{state.releases++;}
+      beginTransaction:async()=>{const previous=queue;queue=new Promise(resolve=>{unlock=resolve;});await previous;snapshot=structuredClone({reports:state.reports,history:state.history,counters:state.counters});},
+      commit:async()=>{unlock();},rollback:async()=>{state.rollbacks++;state.reports=snapshot.reports;state.history=snapshot.history;state.counters=snapshot.counters;unlock();},release:()=>{state.releases++;}
     };
   }};
   const store=new session.MemoryStore();const app=createApp({config,db,sessionStore:store});const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
@@ -83,6 +85,32 @@ test('drafts are incomplete, private, unnumbered, and invisible to other residen
     assert.equal((await f.request(user,'?view=all')).data.reports.length,0);
     assert.equal((await f.request(user,'?view=drafts')).status,403);
   }
+});
+
+test('resident numbers start at one per owner, ignore drafts and retain cancelled numbers',async t=>{
+  const f=await fixture(t);
+  const draft=await f.request(1,'/drafts','POST',{});
+  assert.equal(draft.data.report.resident_report_no,null);
+  await f.request(1,`/${draft.data.report.id}/cancel`,'POST',{});
+  const first=await f.request(1,'','POST',form),other=await f.request(2,'','POST',form);
+  assert.equal(first.status,201);assert.equal(other.status,201);
+  assert.equal(first.data.report.resident_report_no,1);assert.equal(other.data.report.resident_report_no,1);
+  assert.notEqual(first.data.report.reference_no,other.data.report.reference_no);
+  await f.request(1,`/${first.data.report.id}/cancel`,'POST',{});
+  const next=await f.request(1,'','POST',form);
+  assert.equal(next.data.report.resident_report_no,2);
+  assert.equal((await f.request(1,`/${first.data.report.id}`)).data.report.resident_report_no,1);
+});
+
+test('simultaneous submissions receive separate resident numbers and failed submissions roll back allocation',async t=>{
+  const f=await fixture(t);
+  f.state.failHistory=true;
+  assert.equal((await f.request(1,'','POST',form)).status,500);
+  assert.equal(f.state.counters[1],undefined);
+  f.state.failHistory=false;
+  const results=await Promise.all([f.request(1,'','POST',form),f.request(1,'','POST',form)]);
+  assert.deepEqual(results.map(result=>result.status),[201,201]);
+  assert.deepEqual(results.map(result=>result.data.report.resident_report_no).sort(),[1,2]);
 });
 
 test('submitted list/detail enforce ownership, reveal history remarks, and exclude private drafts',async t=>{
@@ -136,6 +164,21 @@ test('other residents cannot edit, submit, or cancel a guessed report ID',async 
   const f=await fixture(t);seed(f.state);
   for(const [path,method,body] of [['/1','PUT',form],['/1/submit','POST',{}],['/1/cancel','POST',{}]]) assert.equal((await f.request(2,path,method,body)).status,404);
   assert.equal(f.state.reports[0].submission_stage,'Draft');
+});
+
+test('cancelled drafts remain private, leave active drafts, and cannot be edited or submitted',async t=>{
+  const f=await fixture(t);seed(f.state);
+  assert.equal((await f.request(1,'/1/cancel','POST',{})).status,200);
+  const row=f.state.reports[0];
+  assert.equal(row.submission_stage,'Draft');assert.equal(row.reference_no,null);assert.equal(row.status,null);assert.equal(row.cancelled_by,1);assert.equal(f.state.history.length,0);
+  assert.equal((await f.request(1,'?view=drafts')).data.reports.length,0);
+  assert.equal((await f.request(1,'?view=cancelled')).data.reports.length,1);
+  assert.equal((await f.request(1,'?view=all')).data.reports.length,1);
+  for(const user of [2,3,4,5,6])assert.equal((await f.request(user,'/1')).status,404);
+  for(const user of [3,4,5,6])assert.equal((await f.request(user,'?view=cancelled')).data.reports.length,0);
+  assert.equal((await f.request(1,'/1','PUT',form)).status,409);
+  assert.equal((await f.request(1,'/1/submit','POST',{})).status,409);
+  assert.equal((await f.request(1,'/1/cancel','POST',{})).status,409);
 });
 
 test('cancellation is final, retained, attributable, and excluded from active lists',async t=>{
