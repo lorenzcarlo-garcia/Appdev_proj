@@ -3,7 +3,7 @@ import {MapPin,CalendarDays} from 'lucide-react';
 import {formatDateTime} from '../../utils/dates';
 export default function CommunityUpdateCard({update,management=false,actions}){
   return <article className="panel min-w-0 space-y-4 p-5 sm:p-6">
-    <div className="flex flex-wrap items-center gap-2"><StatusBadge status={update.maintenance_status}/>{management && <span className="rounded-sm border border-line px-3 py-1 text-xs font-medium text-muted">{update.publication_state}</span>}</div>
+    <div className="flex flex-wrap items-center gap-2"><StatusBadge status={update.update_type==='Reported issue' && update.maintenance_status==='Completed'?'Resolved':update.maintenance_status}/><span className="rounded-control border border-line bg-canvas px-2.5 py-1 text-xs font-medium text-brand">{update.update_type==='Reported issue'?'Resident-reported issue':'Maintenance'}</span>{management && <span className="rounded-sm border border-line px-3 py-1 text-xs font-medium text-muted">{update.publication_state}</span>}</div>
     <h3 className="text-xl font-semibold wrap-anywhere">{update.title}</h3>
     <p className="flex items-start gap-2 text-sm text-muted"><MapPin size={17} className="mt-0.5 shrink-0" aria-hidden="true"/><span className="wrap-anywhere">{update.location}</span></p>
     <p className="text-sm leading-7 whitespace-pre-wrap wrap-anywhere">{update.summary}</p>

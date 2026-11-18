@@ -25,6 +25,7 @@ async function fixture(t) {
   }
   async function execute(sql,args) {
     state.calls.push({sql,args});
+  if(sql.startsWith('UPDATE community_updates'))return [{affectedRows:0}];
     if(sql.startsWith('INSERT INTO resident_report_counters')){state.counters[args[0]]=(state.counters[args[0]]||0)+1;return [{affectedRows:1}];}
     if(sql.startsWith('SELECT last_report_no FROM resident_report_counters'))return [[{last_report_no:state.counters[args[0]]}]];
     if(sql.startsWith('SELECT id, email')) return [[{id:args[0],password_hash:'synthetic-resource-hash',email:'test@example.invalid',role:roles[args[0]-1],resident_id:args[0]<=2?args[0]:null,is_active:1}]];

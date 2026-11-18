@@ -23,6 +23,7 @@ async function fixture(t) {
  }
  async function execute(sql,args) {
   state.calls.push({sql,args});
+  if(sql.startsWith('UPDATE community_updates'))return [{affectedRows:0}];
   if(sql.startsWith('SELECT id, email'))return [[{id:args[0],role:roles[args[0]-1],is_active:1,password_hash:'synthetic-resource-hash',email:'test@example.invalid',resident_id:args[0]<3?args[0]:null}]];
   if(sql.includes('FROM incident_categories'))return [state.categories.filter(row=>row.id===args[0])];
   if(sql.startsWith('SELECT')&&sql.includes('FROM incident_reports'))return [structuredClone(state.reports.filter(row=>row.id===args[0]&&(!sql.includes('user_id = ?')||row.user_id===args[1])))];

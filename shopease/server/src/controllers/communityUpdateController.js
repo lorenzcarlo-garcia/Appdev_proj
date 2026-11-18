@@ -10,6 +10,7 @@ module.exports=db=>{
     list:run(async(req,res)=>res.json({success:true,...await service.list(req.user,req.query)})),
     detail:run(async(req,res)=>res.json({success:true,update:await service.detail(req.params.id,req.user)})),
     create:run(async(req,res)=>res.status(201).json({success:true,update:await service.create(req.user,req.body)})),
+    fromReport:run(async(req,res)=>res.status(201).json({success:true,update:await service.fromReport(req.params.id,req.user,req.body)})),
     save:run(async(req,res)=>res.json({success:true,update:await service.save(req.params.id,req.user,req.body)})),
     publish:run(async(req,res)=>res.json({success:true,update:await service.transition(req.params.id,req.user,req.body,'publish')})),
     archive:run(async(req,res)=>res.json({success:true,update:await service.transition(req.params.id,req.user,req.body,'archive')}))

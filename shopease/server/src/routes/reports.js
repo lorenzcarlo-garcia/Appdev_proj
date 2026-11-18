@@ -13,6 +13,7 @@ module.exports=db=>{
   router.post('/:id/cancel',allowRoles('resident'),controller.cancel);
   router.patch('/:id/status',allowRoles('staff','secretary','captain','super_admin'),controller.status);
   router.post('/:id/blotter',allowRoles('captain','super_admin'),controller.convert);
+  router.post('/:id/community-update',allowRoles('secretary','captain','super_admin'),require('../controllers/communityUpdateController')(db).fromReport);
   // Reports are retained; no DELETE endpoint.
   return router;
 };

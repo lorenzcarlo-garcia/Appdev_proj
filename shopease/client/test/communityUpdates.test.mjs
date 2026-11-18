@@ -22,7 +22,12 @@ test('community summaries render as plain text without executable markup or priv
  assert.ok(html.includes('&lt;script&gt;'));assert.ok(html.includes('&lt;img'));assert.ok(!html.includes('<script'));assert.ok(!html.includes('<img'));assert.ok(!html.includes('private.invalid'));assert.ok(!html.includes('created_by'));assert.ok(!html.includes('report_id'));assert.ok(!html.includes('999'));assert.ok(html.includes('Ongoing'));
 });
 test('resident home includes maintenance feed and report links with no publishing controls',()=>{
- const html=render(Home,'resident');assert.ok(html.includes('Maintenance updates'));assert.ok(html.includes('href="/resident/reports/new"'));assert.ok(html.includes('href="/resident/reports"'));assert.ok(!html.includes('New update'));assert.ok(!html.includes('Visibility'));
+ const html=render(Home,'resident');assert.ok(html.includes('Community issues and maintenance'));assert.ok(html.includes('href="/resident/reports/new"'));assert.ok(html.includes('href="/resident/reports"'));assert.ok(!html.includes('New update'));assert.ok(!html.includes('Visibility'));
+});
+test('reported issue cards show resolved progress without exposing source report identifiers or private metadata',()=>{
+ const html=renderToStaticMarkup(createElement(Card,{update:{id:4,title:'Public road concern',summary:'Work completed along the shared road.',location:'Public road',update_type:'Reported issue',maintenance_status:'Completed',source_report_id:98765,user_id:76543,reference_no:'PRIVATE-REF'}}));
+ assert.ok(html.includes('Resident-reported issue'));assert.ok(html.includes('Resolved'));
+ for(const value of ['98765','76543','PRIVATE-REF','source_report_id'])assert.ok(!html.includes(value));
 });
 test('only Secretary Captain and Super Admin see management controls',()=>{
  for(const role of ['resident','staff','secretary','captain','super_admin']){

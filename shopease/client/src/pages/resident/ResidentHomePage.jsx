@@ -8,7 +8,7 @@ const services = [
   {to:'/resident/profile',title:'Your resident profile',description:'Keep your contact information and resident details up to date.',icon:UserRound},
 ];
 export default function ResidentHomePage(){
-  return <><PageHeader title="Barangay services" description="Report a concern or check maintenance updates from your barangay." action={<div className="flex flex-wrap gap-3"><Link className="button button-secondary" to="/resident/reports">My Reports</Link><Link className="button button-primary" to="/resident/reports/new">Report an incident</Link></div>}/>
+  return <><PageHeader title="Barangay services" description="Report a concern and follow community issues, barangay action and maintenance updates." action={<div className="flex flex-wrap gap-3"><Link className="button button-secondary" to="/resident/reports">My Reports</Link><Link className="button button-primary" to="/resident/reports/new">Report an incident</Link></div>}/>
     <nav aria-label="Resident services" className="mb-8 grid gap-4 sm:grid-cols-3">{services.map(({to,title,description,icon:Icon})=><Link key={to} to={to} className="panel service-card"><div className="flex items-center justify-between gap-4"><span className="service-card-icon"><Icon size={23} aria-hidden="true"/></span><ArrowUpRight size={19} className="text-brand" aria-hidden="true"/></div><div><h2 className="text-xl font-semibold text-brand-dark">{title}</h2><p className="mt-2 text-sm leading-6 text-muted">{description}</p></div></Link>)}</nav>
     <CommunityUpdatesPanel/></>;
 }

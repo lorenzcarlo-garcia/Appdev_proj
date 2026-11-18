@@ -76,6 +76,8 @@ function reportService(db) {
       if (nextStatus[row.status] !== body.status) fail(409,'Follow Submitted -> Under Investigation -> Scheduled for Action -> Resolved; resolved reports cannot be reopened');
       await connection.execute('UPDATE incident_reports SET status = ? WHERE id = ?', [body.status,id]);
       await connection.execute('INSERT INTO report_status_history (report_id, old_status, new_status, changed_by, remarks) VALUES (?, ?, ?, ?, ?)', [id,row.status,body.status,actor,remarks]);
+      const publicProgress={'Under Investigation':'Ongoing','Scheduled for Action':'Planned',Resolved:'Completed'}[body.status];
+      await connection.execute("UPDATE community_updates SET maintenance_status = ?, updated_by = ?, version = version + 1 WHERE source_report_id = ? AND publication_state <> 'Archived'",[publicProgress,actor,id]);
       return {id,status:body.status,message:'Report status updated'};
     });
   }
@@ -111,6 +113,7 @@ function reportService(db) {
       const row=await owned(connection,id,userId);
       if(row.cancelled_at || !(row.submission_stage==='Draft' || (row.submission_stage==='Submitted' && row.status==='Submitted'))) fail(409,'Only an active draft or Submitted report can be cancelled');
       await connection.execute('UPDATE incident_reports SET cancelled_at = CURRENT_TIMESTAMP, cancelled_by = ? WHERE id = ?', [userId,id]);
+      await connection.execute("UPDATE community_updates SET publication_state = 'Archived', archived_by = ?, archived_at = CURRENT_TIMESTAMP, updated_by = ?, version = version + 1 WHERE source_report_id = ? AND publication_state <> 'Archived'",[userId,userId,id]);
       return {id,message:row.submission_stage==='Draft'?'Draft cancelled':'Report cancelled'};
     })
   };

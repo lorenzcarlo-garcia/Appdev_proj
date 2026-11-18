@@ -1,7 +1,10 @@
 const managers=['secretary','captain','super_admin'];
+const {guardEdit,reportKeys}=require('./editToken');
+const {fields:reportFields}=require('./reportService');
 const progress=['Planned','Ongoing','Completed'];
-const publicFields='id, title, summary, location, maintenance_status, published_at, updated_at';
-const managementFields=publicFields+', publication_state, version, created_by, updated_by, published_by, archived_by, archived_at, created_at';
+const publicFields='id, title, summary, location, maintenance_status, update_type, published_at, updated_at';
+const managementFields=publicFields+', source_report_id, publication_state, version, created_by, updated_by, published_by, archived_by, archived_at, created_at';
+const reportProgress={Submitted:'Planned','Under Investigation':'Ongoing','Scheduled for Action':'Planned',Resolved:'Completed'};
 class CommunityUpdateError extends Error {constructor(status,message){super(message);this.status=status;}}
 function fail(status,message){throw new CommunityUpdateError(status,message);}
 function validId(value){return /^[1-9]\d*$/.test(String(value)) && Number(value)<=4294967295;}
@@ -25,6 +28,12 @@ function communityUpdateService(db){
   }
   async function locked(c,id,expected){
     if(!validId(id)) fail(400,'Invalid update ID');
+    const [sources]=await c.execute('SELECT source_report_id FROM community_updates WHERE id = ?',[Number(id)]);
+    // Report operations acquire this lock first, then the linked summary lock.
+    if(sources[0]?.source_report_id){
+      const [reports]=await c.execute('SELECT submission_stage, status, cancelled_at FROM incident_reports WHERE id = ? FOR SHARE',[sources[0].source_report_id]);
+      if(!reports[0] || reports[0].submission_stage!=='Submitted' || reports[0].cancelled_at)fail(409,'The source report is no longer available for a public update.');
+    }
     const [rows]=await c.execute(`SELECT ${managementFields} FROM community_updates WHERE id = ? FOR UPDATE`,[Number(id)]);
     if(!rows.length) fail(404,'Update not found');const row=rows[0];
     if(row.version!==expected) fail(409,'This update changed. Reload it and review the latest version before saving.');
@@ -39,11 +48,13 @@ function communityUpdateService(db){
   return {
     detail,
     list:async(user,query={})=>{
-      if(Object.keys(query).some(key=>!['view','maintenance_status','q','page','page_size'].includes(key))) fail(400,'Unexpected update filter');
+      if(Object.keys(query).some(key=>!['view','maintenance_status','type','source_report_id','q','page','page_size'].includes(key))) fail(400,'Unexpected update filter');
       const {view='published',maintenance_status='',q='',page='1',page_size='10'}=query;
       if(!['published','drafts','archived','all'].includes(view) || typeof q!=='string' || [...q].length>100 || (maintenance_status!=='' && !progress.includes(maintenance_status)) || typeof page!=='string' || !/^[1-9]\d*$/.test(page) || Number(page)>1000000 || typeof page_size!=='string' || !/^[1-9]\d*$/.test(page_size) || Number(page_size)>50) fail(400,'Invalid update filters or pagination');
       if(view!=='published') manager(user);
       const clauses=[],params=[];
+      if(query.type){if(!['Maintenance','Reported issue'].includes(query.type))fail(400,'Choose a valid update type');clauses.push('update_type = ?');params.push(query.type);}
+      if(query.source_report_id!==undefined){manager(user);if(!validId(query.source_report_id))fail(400,'Invalid source report');clauses.push('source_report_id = ?');params.push(Number(query.source_report_id));}
       if(view!=='all'){clauses.push('publication_state = ?');params.push({published:'Published',drafts:'Draft',archived:'Archived'}[view]);}
       if(maintenance_status){clauses.push('maintenance_status = ?');params.push(maintenance_status);}
       if(q.trim()){clauses.push("(title LIKE ? ESCAPE '=' OR summary LIKE ? ESCAPE '=' OR location LIKE ? ESCAPE '=')");const pattern='%'+q.trim().replace(/[=%_]/g,'=$&')+'%';params.push(pattern,pattern,pattern);}
@@ -59,11 +70,29 @@ function communityUpdateService(db){
         return detail(result.insertId,user,c);
       });
     },
+    fromReport:async(id,user,body)=>{
+      manager(user);if(!validId(id))fail(400,'Invalid report ID');
+      object(body,['title','summary','location','expected_report_token']);
+      if(typeof body.expected_report_token!=='string')fail(400,'Reload the source report before preparing an update.');
+      return transaction(async c=>{
+        const [reports]=await c.execute(`SELECT ${reportFields} FROM incident_reports WHERE id = ? FOR UPDATE`,[Number(id)]);
+        const report=reports[0];
+        if(!report || report.submission_stage!=='Submitted')fail(404,'Submitted report not found');
+        if(report.cancelled_at)fail(409,'Cancelled reports cannot be shared as community updates');
+        guardEdit(report,body.expected_report_token,reportKeys);
+        const data=content({...body,maintenance_status:reportProgress[report.status]});
+        let result;
+        try{[result]=await c.execute("INSERT INTO community_updates (title, summary, location, maintenance_status, created_by, updated_by, source_report_id, update_type) VALUES (?, ?, ?, ?, ?, ?, ?, 'Reported issue')",[data.title,data.summary,data.location,data.maintenance_status,user.id,user.id,Number(id)]);}
+        catch(error){if(error.code==='ER_DUP_ENTRY')fail(409,'This report already has a community update. Open its existing update instead.');throw error;}
+        return detail(result.insertId,user,c);
+      });
+    },
     save:async(id,user,body)=>{
       manager(user);object(body,['title','summary','location','maintenance_status','expected_version','confirm']);const data=content(body),expected=version(body);
       if(body.confirm!==undefined && typeof body.confirm!=='boolean') fail(400,'Confirmation must be a boolean');
       return transaction(async c=>{
         const row=await locked(c,id,expected);
+        if(row.source_report_id && data.maintenance_status!==row.maintenance_status)fail(400,'Progress follows the source report. Update the report status instead.');
         if(row.publication_state==='Published' && body.confirm!==true) fail(400,'Review the public summary and confirm before changing a published update');
         await c.execute('UPDATE community_updates SET title = ?, summary = ?, location = ?, maintenance_status = ?, updated_by = ?, version = version + 1 WHERE id = ?',[data.title,data.summary,data.location,data.maintenance_status,user.id,Number(id)]);
         return detail(id,user,c);
