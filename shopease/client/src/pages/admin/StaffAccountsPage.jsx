@@ -120,7 +120,7 @@ export default function StaffAccountsPage() {
     {key:'actions',label:'Actions',render:actions},
   ];
   return <>
-    <PageHeader title="Staff Accounts" description="Create staff accounts, assign barangay roles, and manage account access." action={<Button onClick={() => openEditor()} disabled={busy}><Plus size={18} aria-hidden="true" />Create staff account</Button>} />
+    <PageHeader title="Staff Accounts" action={<Button onClick={() => openEditor()} disabled={busy}><Plus size={18} aria-hidden="true" />Create staff account</Button>} />
     <div className="space-y-5">
       {notice && <Alert variant="success">{notice}</Alert>}
       {accessError && <Alert variant="error">{accessError}</Alert>}

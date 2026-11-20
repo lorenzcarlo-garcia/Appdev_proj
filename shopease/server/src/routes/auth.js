@@ -6,14 +6,17 @@ const { csrfProtection } = require('../middleware/csrf');
 function authRoutes(db, config) {
   const router = express.Router();
   const controller = controllers(db, config);
-  const limiter = (limit) => rateLimit({ windowMs: 15 * 60 * 1000, limit,
+  // options.skipSuccessfulRequests: count only failed attempts (used for sign-in).
+  const limiter = (limit, options = {}) => rateLimit({ windowMs: 15 * 60 * 1000, limit, ...options,
     standardHeaders: 'draft-8', legacyHeaders: false,
     message: { success: false, message: 'Too many attempts. Try again later.' } });
   router.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
   router.get('/csrf', limiter(100), controller.csrf);
   router.use(csrfProtection(config.clientOrigins || config.clientOrigin));
   router.post('/register', limiter(5), controller.register);
-  router.post('/login', limiter(10), controller.login);
+  // Ten FAILED sign-ins per 15 minutes stops password guessing; successful sign-ins
+  // (for example, switching between accounts) do not use up the allowance.
+  router.post('/login', limiter(10, { skipSuccessfulRequests: true }), controller.login);
   const passwordReset=require('../controllers/passwordResetController')(db,config);
   router.post('/forgot-password',limiter(5),passwordReset.request);
   router.post('/reset-password',limiter(10),passwordReset.reset);

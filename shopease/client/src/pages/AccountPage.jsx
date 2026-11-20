@@ -31,7 +31,7 @@ export default function AccountPage(){
       setError(unconfirmed?'We could not confirm the password change. Use Log out, then check whether you can log in with your new password before trying again.':authErrorMessage(failure,'We could not change your password. Please try again.'));
     }}finally{writing.current=false;if(mounted.current)setBusy(false);}
   }
-  return <><PageHeader title="My account" description="Manage your personal information and sign-in password."/>
+  return <><PageHeader title="My account" description={user.role==='resident'?'Manage your personal information and sign-in password.':undefined}/>
     <div className="mx-auto max-w-2xl space-y-5">
       <section className="panel p-5 sm:p-7" aria-label="Account information"><dl className="space-y-4"><div><dt className="text-sm text-muted">Email</dt><dd className="mt-1 font-medium wrap-anywhere">{user.email}</dd></div><div><dt className="text-sm text-muted">Account role</dt><dd className="mt-1 font-medium">{labels[user.role]}</dd></div></dl></section>
       {user.role==='resident' ? <OwnProfile/> : <OwnStaffProfile/>}

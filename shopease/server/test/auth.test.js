@@ -246,3 +246,12 @@ test('extra client origins are explicit and validated without wildcard, path or 
     assert.notEqual(failed.status,0);assert.match(failed.stderr,/ADDITIONAL_CLIENT_ORIGINS/);
   }
 });
+
+test('successful sign-ins do not use up the limit; ten failed ones still lock it', async t => {
+  const f = await fixture(t);
+  await f.request('/api/auth/csrf');
+  await f.request('/api/auth/register', 'POST', registration);
+  for (let i = 0; i < 12; i++) assert.equal((await f.request('/api/auth/login', 'POST', { email: registration.email, password })).status, 200, `successful sign-in ${i + 1}`);
+  for (let i = 0; i < 10; i++) assert.equal((await f.request('/api/auth/login', 'POST', { email: registration.email, password: 'incorrect' })).status, 401);
+  assert.equal((await f.request('/api/auth/login', 'POST', { email: registration.email, password })).status, 429, 'locked after ten failures, even with the right password');
+});

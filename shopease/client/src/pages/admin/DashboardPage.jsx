@@ -52,7 +52,7 @@ export default function DashboardPage(){
   const card=(key,props)=><StatCard {...props} selected={key==='all'?!group:group===key} onSelect={()=>showGroup(key)} actionHint="View these reports"/>;
   const areaRows=areas.data.areas||[];const canManageAreas=['secretary','super_admin'].includes(user.role);
   return <>
-    <PageHeader title="Dashboard" description="Barangay report activity for the selected period, category and area."/>
+    <PageHeader title="Dashboard"/>
     <div className="space-y-5">
       <section className="panel p-5" aria-label="Dashboard filters">
         <div className="grid items-end gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -87,7 +87,7 @@ export default function DashboardPage(){
       </>}
       <section className="panel overflow-hidden" aria-labelledby="recent-activity-title">
         <div className="flex flex-wrap items-center justify-between gap-3 p-5 pb-0 sm:px-7"><h2 id="recent-activity-title" className="text-lg font-semibold text-brand-dark">Recent barangay actions</h2><Link className="text-link text-sm" to="/admin/activity">View activity log</Link></div>
-        {activity.error?<div className="p-5"><ErrorState message={activity.error} onRetry={activity.reload}/></div>:activity.loading?<LoadingSpinner label="Loading recent actions..."/>:activity.data.entries?.length?<ActivityList entries={activity.data.entries}/>:<p className="p-5 text-sm text-muted sm:px-7">No actions have been recorded since the activity log was added.</p>}
+        {activity.error?<div className="p-5"><ErrorState message={activity.error} onRetry={activity.reload}/></div>:activity.loading?<LoadingSpinner label="Loading recent actions..."/>:activity.data.entries?.length?<ActivityList entries={activity.data.entries} canInspect={['captain','super_admin'].includes(user.role)}/>:<p className="p-5 text-sm text-muted sm:px-7">No actions have been recorded since the activity log was added.</p>}
       </section>
       <section aria-labelledby="period-reports-title" className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="period-reports-title" className="scroll-mt-4 text-xl font-semibold text-brand-dark">{{open:'Awaiting action',ongoing:'Ongoing reports',resolved:'Resolved reports'}[group]||'Reports in this period'}</h2>{group && <button type="button" className="text-link text-sm" onClick={()=>showGroup('all')}>Show all reports in this period</button>}</div>

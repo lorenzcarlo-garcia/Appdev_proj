@@ -37,12 +37,16 @@ test('bucket labels come from the Manila date key, not the browser time zone',()
   assert.equal(format.shortBucketLabel('2026-01-01','year'),'2026');
   assert.equal(format.bucketLabel('2026-11-16','day'),format.shortBucketLabel('2026-11-16','day'));
 });
-test('activity entries show role and reference only, with emails reserved for Super Admin view',()=>{
-  const entry={id:1,actor_role:'secretary',actor_email:'person@example.invalid',action:'report.status_changed',entity_type:'report',entity_id:9,entity_ref:'RPT-2026-000009',detail:'Submitted → Under Investigation',created_at:'2026-11-18T02:00:00.000Z'};
+test('activity entries show the role; only Captain/Super Admin get a clickable "By ..." and no email is ever inline',()=>{
+  const entry={id:1,actor_id:7,actor_role:'secretary',actor_email:'person@example.invalid',action:'report.status_changed',entity_type:'report',entity_id:9,entity_ref:'RPT-2026-000009',detail:'Submitted → Under Investigation',created_at:'2026-11-18T02:00:00.000Z'};
   const html=plain(createElement(ActivityList,{entries:[entry]}));
   assert.match(html,/Report status changed/);assert.match(html,/By Secretary/);assert.match(html,/href="\/admin\/reports\/9"/);
   assert.doesNotMatch(html,/person@example/);
-  assert.match(plain(createElement(ActivityList,{entries:[entry],showEmail:true})),/person@example\.invalid/);
+  assert.doesNotMatch(html,/<button/,'staff see plain text');
+  const inspect=plain(createElement(ActivityList,{entries:[entry],canInspect:true}));
+  assert.match(inspect,/<button type="button" class="text-link" aria-haspopup="dialog">By Secretary<\/button>/);
+  assert.doesNotMatch(inspect,/person@example/,'details load only in the panel');
+  assert.doesNotMatch(plain(createElement(ActivityList,{entries:[{...entry,actor_id:undefined}],canInspect:true})),/<button/,'no person id, no link');
 });
 test('report form requires an active area only when areas exist, and sends area_id',()=>{
   const form={category_id:'1',title:'Concern',description:'Details',location:'Street',area_id:'',incident_date:'2026-01-15T12:30'};

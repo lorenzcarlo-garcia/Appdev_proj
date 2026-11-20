@@ -55,8 +55,10 @@ async function fixture(t){
     if(sql.includes('LEFT JOIN incident_categories'))return [[{id:1,name:'Drainage',is_active:0,total:3}]];
     if(sql.includes('LEFT JOIN report_areas'))return [[{id:null,name:null,is_active:null,total:2},{id:1,name:'Purok Uno',is_active:1,total:1}]];
     if(sql.includes('NOT EXISTS'))return [[{total:1}]];
+    if(sql.startsWith('SELECT COUNT(*) AS actions'))return [[args[0]===7?{actions:3,first_action_at:'2026-11-01 08:00:00',last_action_at:'2026-11-18 10:00:00',roles_used:'secretary,staff'}:{actions:0,first_action_at:null,last_action_at:null,roles_used:null}]];
+    if(sql.startsWith('SELECT u.id, u.email'))return [args[0]===7?[{id:7,email:'former.secretary@example.invalid',role:'staff',is_active:0,created_at:'2025-01-01 08:00:00',last_login_at:'2026-11-18 09:00:00',first_name:'Ana',middle_name:null,last_name:'Reyes'}]:[]];
     if(sql.startsWith('SELECT COUNT(*) AS total FROM activity_log'))return [[{total:1}]];
-    if(sql.includes('FROM activity_log'))return [[{id:1,actor_role:'secretary',...(sql.includes('actor_email')?{actor_email:'synthetic@example.invalid'}:{}),action:'report.status_changed',entity_type:'report',entity_id:9,entity_ref:'RPT-2026-000009',detail:'Submitted → Under Investigation',created_at:'2026-11-18 10:00:00'}]];
+    if(sql.includes('FROM activity_log'))return [[{id:1,...(sql.includes('a.actor_id, ')?{actor_id:7}:{}),actor_role:'secretary',action:'report.status_changed',entity_type:'report',entity_id:9,entity_ref:'RPT-2026-000009',detail:'Submitted → Under Investigation',created_at:'2026-11-18 10:00:00'}]];
     throw new Error('Unexpected dashboard SQL');
   };
   const store=new session.MemoryStore();const app=createApp({config,db:{execute,query:async()=>[[{}]]},sessionStore:store});
@@ -94,18 +96,27 @@ test('dashboard is administrative only and returns counts without private report
   assert.equal((await f.request(3,'/dashboard?category_id=99')).status,400);
   assert.equal((await f.request(3,'/dashboard?period=nope')).data.message,'Choose a valid period.');
 });
-test('activity log hides staff-account events and emails from non-Super Admin roles',async t=>{
+test('everyone can filter activity by role; only Captain and Super Admin can identify the person',async t=>{
   const f=await fixture(t);
   assert.equal((await f.request(1,'/activity')).status,403);
-  const staff=await f.request(2,'/activity?entity_type=report&from=2026-11-01&to=2026-11-30');
-  assert.equal(staff.status,200);assert.equal(staff.data.entries[0].actor_email,undefined);
+  const staff=await f.request(2,'/activity?entity_type=report&actor_role=secretary&from=2026-11-01&to=2026-11-30');
+  assert.equal(staff.status,200);assert.equal(staff.data.entries[0].actor_id,undefined,'staff cannot tell people apart');
   const call=f.state.calls.find(item=>item.sql.startsWith('SELECT a.id'));
-  assert.match(call.sql,/a\.visibility = 'administrative'/);assert.doesNotMatch(call.sql,/u\.email/);
-  assert.deepEqual(call.args.slice(0,3),['report','2026-11-01 00:00:00','2026-12-01 00:00:00']);
-  assert.equal((await f.request(4,'/activity?entity_type=staff_account')).status,400);
+  assert.match(call.sql,/a\.visibility = 'administrative'/);assert.doesNotMatch(call.sql,/actor_id, |email/);
+  assert.deepEqual(call.args.slice(0,4),['report','secretary','2026-11-01 00:00:00','2026-12-01 00:00:00']);
+  for(const bad of ['actor_role=mayor','actor_id=7','entity_type=staff_account']) assert.equal((await f.request(2,'/activity?'+bad)).status,400,bad);
+  assert.equal((await f.request(2,'/activity/actors/7')).status,403);
+  assert.equal((await f.request(3,'/activity/actors/7')).status,403,'secretary cannot open person details');
   f.state.calls.length=0;
-  const admin=await f.request(5,'/activity');
-  assert.equal(admin.data.entries[0].actor_email,'synthetic@example.invalid');
-  assert.doesNotMatch(f.state.calls.find(item=>item.sql.startsWith('SELECT a.id')).sql,/visibility/);
+  const captain=await f.request(4,'/activity?actor_id=7');
+  assert.equal(captain.status,200);assert.equal(captain.data.entries[0].actor_id,7);
+  assert.match(f.state.calls.find(item=>item.sql.startsWith('SELECT a.id')).sql,/a\.actor_id = \?/);
+  const person=await f.request(4,'/activity/actors/7');
+  assert.equal(person.status,200);
+  assert.deepEqual(Object.keys(person.data.person).sort(),['account_created_at','actions','current_role','email','first_action_at','first_name','id','is_active','last_action_at','last_login_at','last_name','middle_name','roles_used'].sort());
+  assert.deepEqual([person.data.person.current_role,person.data.person.is_active,person.data.person.roles_used],['staff',false,['secretary','staff']],'a former Secretary now Staff, deactivated');
+  assert.match(f.state.calls.find(item=>item.sql.startsWith('SELECT COUNT(*) AS actions')).sql,/visibility = 'administrative'/,'captain only counts administrative events');
+  assert.equal((await f.request(5,'/activity/actors/8')).status,404,'people with no logged actions cannot be looked up');
+  assert.equal((await f.request(5,'/activity/actors/abc')).status,400);
   assert.equal((await f.request(5,'/activity?page_size=500')).status,400);
 });

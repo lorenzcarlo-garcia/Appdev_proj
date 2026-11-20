@@ -21,6 +21,7 @@ export const changeReportStatus=(reportId,status,remarks,expected_token)=>data(a
 export const convertReport=(reportId,details)=>data(api.post(`/reports/${id(reportId)}/blotter`,{...details,confirm:true}));
 export const getDashboard=(params,signal)=>data(api.get('/dashboard',{params,signal}));
 export const listActivity=(params,signal)=>data(api.get('/activity',{params,signal}));
+export const getActivityPerson=({id:personId},signal)=>data(api.get(`/activity/actors/${id(personId)}`,{signal}));
 export const listAdminAreas=(_params,signal)=>data(api.get('/areas',{params:{include_inactive:true},signal}));
 export const createArea=details=>data(api.post('/areas',details));
 export const updateArea=(areaId,details)=>data(api.put(`/areas/${id(areaId)}`,details));
