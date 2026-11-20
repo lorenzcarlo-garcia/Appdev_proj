@@ -93,3 +93,12 @@ test('clickable dashboard cards are real toggle buttons with valid content and a
   assert.doesNotMatch(html,/<h2|<p[ >]/,'no headings or paragraphs inside a button');
   assert.match(renderToStaticMarkup(createElement(StatCard,{label:'Total',value:3})),/^<article/,'cards without an action stay plain');
 });
+test('personnel see who reported, and the complainant name is built from it',async()=>{
+  const ReporterDetails=(await vite.ssrLoadModule('/src/components/reports/ReporterDetails.jsx')).default;
+  const {reporterName}=await vite.ssrLoadModule('/src/utils/reporter.js');
+  const reporter={first_name:'Maria',middle_name:'Santos',last_name:'Cruz',contact_no:null,address:'Purok 1',is_verified:1};
+  assert.equal(reporterName(reporter),'Maria Santos Cruz');assert.equal(reporterName({...reporter,middle_name:null}),'Maria Cruz');assert.equal(reporterName(null),'');
+  const html=renderToStaticMarkup(createElement(ReporterDetails,{reporter}));
+  assert.match(html,/Reported by/);assert.match(html,/Maria Santos Cruz/);assert.match(html,/Verified/);assert.match(html,/Not provided/);
+  assert.match(renderToStaticMarkup(createElement(ReporterDetails,{reporter:null})),/not available/);
+});

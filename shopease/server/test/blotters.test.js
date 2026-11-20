@@ -23,7 +23,7 @@ async function fixture(t) {
  }
  async function execute(sql,args) {
   state.calls.push({sql,args});
-  if(sql.startsWith('INSERT INTO activity_log')){if(state.failActivity)throw new Error('PRIVATE_ACTIVITY_ERROR');(state.activity||=[]).push(args);return [{insertId:state.activity.length}];}if(sql.includes('FROM report_areas'))return [[]];
+  if(sql.includes('FROM residents res JOIN users'))return [[{resident_id:args[0],first_name:'Synthetic',middle_name:null,last_name:'Reporter',contact_no:'09000000000',address:'Synthetic address',is_verified:1}]];if(sql.startsWith('INSERT INTO activity_log')){if(state.failActivity)throw new Error('PRIVATE_ACTIVITY_ERROR');(state.activity||=[]).push(args);return [{insertId:state.activity.length}];}if(sql.includes('FROM report_areas'))return [[]];
   if(sql.startsWith('UPDATE community_updates'))return [{affectedRows:0}];
   if(sql.startsWith('SELECT id, email'))return [[{id:args[0],role:roles[args[0]-1],is_active:1,password_hash:'synthetic-resource-hash',email:'test@example.invalid',resident_id:args[0]<3?args[0]:null}]];
   if(sql.includes('FROM incident_categories'))return [state.categories.filter(row=>row.id===args[0])];

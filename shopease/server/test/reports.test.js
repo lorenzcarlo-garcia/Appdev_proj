@@ -25,7 +25,7 @@ async function fixture(t) {
   }
   async function execute(sql,args) {
     state.calls.push({sql,args});
-  if(sql.startsWith('INSERT INTO activity_log')){(state.activity||=[]).push(args);return [{insertId:state.activity.length}];}if(sql.includes('FROM report_areas'))return [(state.areas||[]).filter(row=>sql.includes('WHERE id = ?')?row.id===args[0]:row.is_active===1).slice(0,1)];
+  if(sql.includes('FROM residents res JOIN users'))return [[{resident_id:args[0],first_name:'Synthetic',middle_name:null,last_name:'Reporter',contact_no:'09000000000',address:'Synthetic address',is_verified:1}]];if(sql.startsWith('INSERT INTO activity_log')){(state.activity||=[]).push(args);return [{insertId:state.activity.length}];}if(sql.includes('FROM report_areas'))return [(state.areas||[]).filter(row=>sql.includes('WHERE id = ?')?row.id===args[0]:row.is_active===1).slice(0,1)];
   if(sql.startsWith('UPDATE community_updates'))return [{affectedRows:0}];
     if(sql.startsWith('INSERT INTO resident_report_counters')){state.counters[args[0]]=(state.counters[args[0]]||0)+1;return [{affectedRows:1}];}
     if(sql.startsWith('SELECT last_report_no FROM resident_report_counters'))return [[{last_report_no:state.counters[args[0]]}]];
@@ -252,4 +252,15 @@ test('areas are optional until configured, then required and active at submissio
   assert.equal(f.state.activity.at(-1)[2],'report.cancelled');
   assert.equal((await f.request(3,`/${created.data.report.id}/area`,'PATCH',{area_id:null})).status,409);
   for(const row of f.state.activity) assert(!JSON.stringify(row).includes('Test details'),'report text is never copied into activity');
+});
+
+test('personnel see who filed a submitted report; residents get no reporter block',async t=>{
+  const f=await fixture(t);
+  assert.equal((await f.request(1,'','POST',form)).status,201);
+  const staff=await f.request(3,'/1');
+  assert.equal(staff.status,200);
+  assert.deepEqual(staff.data.report.reporter,{resident_id:1,first_name:'Synthetic',middle_name:null,last_name:'Reporter',contact_no:'09000000000',address:'Synthetic address',is_verified:1});
+  assert.equal(Object.hasOwn((await f.request(1,'/1')).data.report,'reporter'),false);
+  assert.equal((await f.request(2,'/1')).status,404,'other residents still cannot open it');
+  assert.equal(f.state.calls.find(call=>call.sql.includes('JOIN users u ON u.resident_id')).args[0],1,'looked up by the report owner, not by client input');
 });

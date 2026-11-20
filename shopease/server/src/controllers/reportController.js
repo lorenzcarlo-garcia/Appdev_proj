@@ -55,7 +55,14 @@ module.exports = db => {
       if(!rows.length) throw new ReportError(404,'Report not found');
       const [history]=rows[0].submission_stage==='Draft'?[[]]:await db.execute('SELECT old_status, new_status, changed_by, remarks, created_at FROM report_status_history WHERE report_id = ? ORDER BY created_at, id',[reportId]);
       const {submitted_at,...report}=rows[0];
-      res.json({success:true,report:{...report,submitted_at,edit_token:editToken(report,reportKeys)},history});
+      // Personnel see who filed a submitted report (they can already view resident records),
+      // e.g. to name the complainant on a blotter. Residents' own responses are unchanged.
+      let reporter;
+      if(req.user.role!=='resident'){
+        const [people]=await db.execute('SELECT res.id AS resident_id, res.first_name, res.middle_name, res.last_name, res.contact_no, res.address, res.is_verified FROM residents res JOIN users u ON u.resident_id = res.id WHERE u.id = ?',[report.user_id]);
+        reporter=people[0]||null;
+      }
+      res.json({success:true,report:{...report,submitted_at,edit_token:editToken(report,reportKeys),...(reporter!==undefined?{reporter}:{})},history});
     }),
     draft:run(async(req,res)=>res.status(201).json({success:true,report:await service.create(req.user.id,req.body,false)})),
     create:run(async(req,res)=>res.status(201).json({success:true,report:await service.create(req.user.id,req.body,true)})),
