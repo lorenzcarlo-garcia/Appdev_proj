@@ -6,6 +6,9 @@ const missing = () => ({ status: 404, body: { success: false, message: 'Resident
 const linked = () => ({ status: 409, body: { success: false, message: 'Resident is linked to an account and cannot be deleted' } });
 const send = (res, result) => res.status(result.status).json(result.body);
 const {validate}=require('../services/residentValidation');
+const {logActivity}=require('../services/activityLog');
+// Resident activity is referenced by record number only, never by name.
+const logResident=(c,user,action,id,detail=null)=>logActivity(c,user,{action,entityType:'resident',entityId:id,entityRef:`Resident #${id}`,detail});
 function residentController(db) {
   async function transaction(work) {
     const connection = await db.getConnection();
@@ -41,7 +44,11 @@ function residentController(db) {
     create: async (req, res) => {
       const data = validate(req.body);
       if (!data) return send(res, invalid('Provide valid first name, last name, address, and optional middle name, birth date, and contact number; audit and verification fields cannot be supplied'));
-      const [result] = await db.execute('INSERT INTO residents (first_name, middle_name, last_name, birth_date, contact_no, address, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)', [data.first_name,data.middle_name,data.last_name,data.birth_date,data.contact_no,data.address,req.user.id]);
+      const result = await transaction(async c => {
+        const [inserted] = await c.execute('INSERT INTO residents (first_name, middle_name, last_name, birth_date, contact_no, address, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)', [data.first_name,data.middle_name,data.last_name,data.birth_date,data.contact_no,data.address,req.user.id]);
+        await logResident(c,req.user,'resident.created',inserted.insertId);
+        return inserted;
+      });
       res.status(201).json({ success:true, resident:{id:result.insertId,...data,is_verified:0,created_by:req.user.id} });
     },
     update: async (req, res) => {
@@ -51,14 +58,17 @@ function residentController(db) {
       if (!data) return send(res, invalid('Provide valid resident details; audit and verification fields cannot be supplied'));
       const id = Number(req.params.id);
       if(expected_token!==undefined){
-        await transaction(async c=>{const [rows]=await c.execute(`SELECT ${fields} FROM residents WHERE id = ? FOR UPDATE`,[id]);if(!rows.length){throw new (require('../services/editToken').EditConflictError)(404,'Resident not found');}guardEdit(rows[0],expected_token,residentKeys);await c.execute('UPDATE residents SET first_name = ?, middle_name = ?, last_name = ?, birth_date = ?, contact_no = ?, address = ? WHERE id = ?',[data.first_name,data.middle_name,data.last_name,data.birth_date,data.contact_no,data.address,id]);});
+        await transaction(async c=>{const [rows]=await c.execute(`SELECT ${fields} FROM residents WHERE id = ? FOR UPDATE`,[id]);if(!rows.length){throw new (require('../services/editToken').EditConflictError)(404,'Resident not found');}guardEdit(rows[0],expected_token,residentKeys);await c.execute('UPDATE residents SET first_name = ?, middle_name = ?, last_name = ?, birth_date = ?, contact_no = ?, address = ? WHERE id = ?',[data.first_name,data.middle_name,data.last_name,data.birth_date,data.contact_no,data.address,id]);await logResident(c,req.user,'resident.updated',id);});
         return res.json({success:true,message:'Resident updated'});
       }
-      const [result] = await db.execute('UPDATE residents SET first_name = ?, middle_name = ?, last_name = ?, birth_date = ?, contact_no = ?, address = ? WHERE id = ?', [data.first_name,data.middle_name,data.last_name,data.birth_date,data.contact_no,data.address,id]);
-      if (!result.affectedRows) {
-        const [rows] = await db.execute('SELECT id FROM residents WHERE id = ?', [id]);
-        if (!rows.length) return send(res, missing());
-      }
+      const found = await transaction(async c => {
+        const [rows] = await c.execute('SELECT id FROM residents WHERE id = ? FOR UPDATE', [id]);
+        if (!rows.length) return false;
+        await c.execute('UPDATE residents SET first_name = ?, middle_name = ?, last_name = ?, birth_date = ?, contact_no = ?, address = ? WHERE id = ?', [data.first_name,data.middle_name,data.last_name,data.birth_date,data.contact_no,data.address,id]);
+        await logResident(c,req.user,'resident.updated',id);
+        return true;
+      });
+      if (!found) return send(res, missing());
       res.json({ success:true, message:'Resident updated' });
     },
     verification: async (req, res) => {
@@ -73,6 +83,7 @@ function residentController(db) {
         if (Boolean(rows[0].is_verified) !== body.is_verified) {
           if (body.is_verified) await connection.execute('UPDATE residents SET is_verified = ?, verified_by = ?, verified_at = CURRENT_TIMESTAMP WHERE id = ?', [1,req.user.id,id]);
           else await connection.execute('UPDATE residents SET is_verified = ?, verified_by = NULL, verified_at = NULL WHERE id = ?', [0,id]);
+          await logResident(connection,req.user,body.is_verified?'resident.verified':'resident.unverified',id);
         }
         return {status:200,body:{success:true,message:body.is_verified ? 'Resident verified' : 'Resident verification cleared'}};
       });
@@ -91,6 +102,7 @@ function residentController(db) {
           const [users] = await connection.execute('SELECT id FROM users WHERE resident_id = ? LIMIT 1', [id]);
           if (users.length) return linked();
           await connection.execute('DELETE FROM residents WHERE id = ?', [id]);
+          await logResident(connection,req.user,'resident.deleted',id,'Unlinked resident record deleted');
           return {status:200,body:{success:true,message:'Resident deleted'}};
         });
         send(res,result);

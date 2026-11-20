@@ -1,5 +1,7 @@
 const {fields:reportFields}=require('./reportService');
 const {guardEdit,blotterKeys,reportKeys}=require('./editToken');
+const {isFutureIncident}=require('./manilaTime');
+const {logActivity,reportRef}=require('./activityLog');
 const fields = "id, blotter_no, report_id, category_id, complainant_name, respondent_name, narrative, DATE_FORMAT(incident_date, '%Y-%m-%dT%H:%i:%s') AS incident_date, location, recorded_by, approved_by, approved_at, archived_at, archived_by, created_at, updated_at";
 class BlotterError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -25,6 +27,7 @@ function validate(body,update=false) {
   if (date.length === 16) date += ':00';
   const parsed = new Date(date + 'Z');
   if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0,19) !== date || date.slice(0,4) < '1000') fail(400, 'Invalid incident_date');
+  if (isFutureIncident(date)) fail(400, 'The incident date and time cannot be in the future');
   data.incident_date = date;
   return data;
 }
@@ -54,13 +57,17 @@ function blotterService(db) {
     if (rows[0].archived_at) fail(409, 'Archived blotter records cannot be changed');
     return rows[0];
   }
-  async function insert(connection, actor, data, reportId = null) {
+  async function insert(connection, actor, data, report = null) {
     await category(connection, data.category_id);
-    const approver = reportId === null ? null : actor;
-    const [result] = await connection.execute('INSERT INTO blotter_records (report_id, category_id, complainant_name, respondent_name, narrative, incident_date, location, recorded_by, approved_by, approved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, IF(? IS NULL, NULL, CURRENT_TIMESTAMP))', [reportId, ...values(data), actor, approver, approver]);
+    const reportId = report ? report.id : null;
+    const approver = reportId === null ? null : actor.id;
+    const [result] = await connection.execute('INSERT INTO blotter_records (report_id, category_id, complainant_name, respondent_name, narrative, incident_date, location, recorded_by, approved_by, approved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, IF(? IS NULL, NULL, CURRENT_TIMESTAMP))', [reportId, ...values(data), actor.id, approver, approver]);
     const year = new Intl.DateTimeFormat('en-US', {year:'numeric',timeZone:'Asia/Manila'}).format(new Date());
     const number = 'BLT-' + year + '-' + String(result.insertId).padStart(6, '0');
     await connection.execute('UPDATE blotter_records SET blotter_no = ? WHERE id = ?', [number, result.insertId]);
+    await logActivity(connection, actor, report
+      ? {action:'blotter.approved_from_report', entityType:'blotter', entityId:result.insertId, entityRef:number, detail:`Approved from ${reportRef(report)}`}
+      : {action:'blotter.created', entityType:'blotter', entityId:result.insertId, entityRef:number, detail:'Walk-in record'});
     return {id:result.insertId, blotter_no:number, report_id:reportId};
   }
   function convert(reportId, actor, body) {
@@ -69,7 +76,7 @@ function blotterService(db) {
     const data = validate(details);
     return transaction(async connection => {
       // Sharing the report lock serializes approval with status changes/cancellation.
-      const [reports] = await connection.execute(expected_report_token===undefined?'SELECT id, submission_stage, status, cancelled_at FROM incident_reports WHERE id = ? FOR UPDATE':`SELECT ${reportFields} FROM incident_reports WHERE id = ? FOR UPDATE`, [reportId]);
+      const [reports] = await connection.execute(expected_report_token===undefined?'SELECT id, reference_no, submission_stage, status, cancelled_at FROM incident_reports WHERE id = ? FOR UPDATE':`SELECT ${reportFields} FROM incident_reports WHERE id = ? FOR UPDATE`, [reportId]);
       const report = reports[0];
       if (!report || report.submission_stage !== 'Submitted') fail(404,'Report not found');
       if (report.cancelled_at) fail(409,'Cancelled reports cannot become blotter records');
@@ -77,7 +84,7 @@ function blotterService(db) {
       const [existing] = await connection.execute('SELECT id FROM blotter_records WHERE report_id = ?', [reportId]);
       if (existing.length) fail(409,'This report already has a blotter record');
       // Conversion creates a linked official snapshot and preserves report status.
-      return insert(connection, actor, data, reportId);
+      return insert(connection, actor, data, report);
     });
   }
   return {
@@ -86,7 +93,7 @@ function blotterService(db) {
       const data = validate(body);
       return transaction(connection => insert(connection, actor, data));
     },
-    update: (id, body) => {
+    update: (id, actor, body) => {
       const data = validate(body,true);
       return transaction(async connection => {
         const row = await locked(connection, id);
@@ -94,14 +101,17 @@ function blotterService(db) {
         // Existing inactive categories may be retained; new selections must be active.
         await category(connection, data.category_id, row.category_id);
         await connection.execute('UPDATE blotter_records SET category_id = ?, complainant_name = ?, respondent_name = ?, narrative = ?, incident_date = ?, location = ? WHERE id = ?', [...values(data), id]);
+        // Names and narrative are confidential; record only that the record was edited.
+        await logActivity(connection, actor, {action:'blotter.updated', entityType:'blotter', entityId:id, entityRef:row.blotter_no});
         return {id, message:'Blotter record updated'};
       });
     },
     archive: (id, actor, body) => {
       if (!body || body.confirm !== true || Object.keys(body).some(key => key !== 'confirm')) fail(400, 'Explicit confirmation is required: confirm must be true');
       return transaction(async connection => {
-        await locked(connection, id);
-        await connection.execute('UPDATE blotter_records SET archived_at = CURRENT_TIMESTAMP, archived_by = ? WHERE id = ?', [actor, id]);
+        const row = await locked(connection, id);
+        await connection.execute('UPDATE blotter_records SET archived_at = CURRENT_TIMESTAMP, archived_by = ? WHERE id = ?', [actor.id, id]);
+        await logActivity(connection, actor, {action:'blotter.archived', entityType:'blotter', entityId:id, entityRef:row.blotter_no});
         return {id, message:'Blotter record archived'};
       });
     }

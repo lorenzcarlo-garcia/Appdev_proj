@@ -1,7 +1,7 @@
 import OwnProfile from '../components/residents/OwnProfile';
 import OwnStaffProfile from '../components/staff/OwnStaffProfile';
 import {useEffect,useRef,useState} from 'react';
-import {useNavigate} from 'react-router-dom';
+import {Link,useNavigate} from 'react-router-dom';
 import {useAuth} from '../hooks/useAuth';
 import {validatePasswordChange,authErrorMessage} from '../utils/validation';
 import PageHeader from '../components/ui/PageHeader';
@@ -44,6 +44,7 @@ export default function AccountPage(){
           <Button type="submit" busy={busy} disabled={uncertain} className="w-full sm:w-auto">Change password and sign out</Button>
         </form>
       </section>
+      <p className="text-sm text-muted"><Link className="text-link" to="/terms">Terms and Conditions</Link> · <Link className="text-link" to="/privacy">Privacy Notice</Link></p>
     </div>
   </>;
 }

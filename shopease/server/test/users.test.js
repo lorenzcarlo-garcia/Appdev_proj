@@ -22,6 +22,7 @@ async function fixture(t) {
   const publicUser = row => {const {password_hash,resident_id,...safe}=row;void password_hash;void resident_id;return safe;};
   async function execute(sql,args) {
     state.calls.push({sql,args});
+  if(sql.startsWith('INSERT INTO activity_log')){(state.activity||=[]).push(args);return [{insertId:state.activity.length}];}if(sql.includes('FROM report_areas'))return [[]];
     if(sql.startsWith('SELECT id, email, role, resident_id'))return [state.users.filter(row=>row.id===args[0]).map(row=>({...row}))];
     if(sql.endsWith('FOR UPDATE'))return [state.users.filter(row=>row.id===args[0]).map(row=>({...row}))];
     if(sql.startsWith('SELECT COUNT'))return [[{total:list(sql,args).length}]];

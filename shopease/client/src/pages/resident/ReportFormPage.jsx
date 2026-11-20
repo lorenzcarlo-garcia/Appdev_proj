@@ -5,7 +5,8 @@ import {useEffect, useRef, useState} from 'react';
 import {Link, useLocation, useNavigate, useParams} from 'react-router-dom';
 import {createDraft, createReport, getReport, saveReport, submitDraft} from '../../services/reports';
 import {listCategories} from '../../services/categories';
-import {reportPayload, validateReport} from '../../utils/validation';
+import {listAreas} from '../../services/areas';
+import {nowInManila, reportPayload, validateReport} from '../../utils/validation';
 import PageHeader from '../../components/ui/PageHeader';
 import FormField from '../../components/ui/FormField';
 import Button from '../../components/ui/Button';
@@ -14,7 +15,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import ErrorState from '../../components/ui/ErrorState';
 import EmptyState from '../../components/ui/EmptyState';
 
-const emptyForm = {category_id:'',title:'',description:'',location:'',incident_date:''};
+const emptyForm = {category_id:'',title:'',description:'',location:'',area_id:'',incident_date:''};
 function message(error, fallback) {
   return typeof error.response?.data?.message === 'string' ? error.response.data.message : fallback;
 }
@@ -24,7 +25,7 @@ function ReportEditor({id}) {
   const navigate = useNavigate();
   const location = useLocation();
   const [attempt,setAttempt] = useState(0);
-  const [loaded,setLoaded] = useState({loading:true,report:null,categories:[],error:'',notFound:false});
+  const [loaded,setLoaded] = useState({loading:true,report:null,categories:[],areas:[],error:'',notFound:false});
   const [form,setForm] = useState({...emptyForm});
   const [errors,setErrors] = useState({});
   const [error,setError] = useState('');
@@ -42,13 +43,13 @@ function ReportEditor({id}) {
   useEffect(() => {
     if (!validId) return;
     const controller = new AbortController();
-    void Promise.all([listCategories(controller.signal),editing ? getReport(id,controller.signal) : Promise.resolve(null)]).then(([categories,data]) => {
+    void Promise.all([listCategories(controller.signal),listAreas(controller.signal),editing ? getReport(id,controller.signal) : Promise.resolve(null)]).then(([categories,areas,data]) => {
       if (controller.signal.aborted) return;
       const report = data?.report || null;
-      if (report) setForm({category_id:report.category_id === null ? '' : String(report.category_id),title:report.title || '',description:report.description || '',location:report.location || '',incident_date:report.incident_date || ''});
-      setLoaded({loading:false,report,categories,error:'',notFound:false});
+      if (report) setForm({category_id:report.category_id === null ? '' : String(report.category_id),title:report.title || '',description:report.description || '',location:report.location || '',area_id:report.area_id == null ? '' : String(report.area_id),incident_date:report.incident_date || ''});
+      setLoaded({loading:false,report,categories,areas,error:'',notFound:false});
     }).catch(failure => {
-      if (!controller.signal.aborted) setLoaded({loading:false,report:null,categories:[],error:message(failure,'We could not load the report form. Please try again.'),notFound:failure.response?.status === 404});
+      if (!controller.signal.aborted) setLoaded({loading:false,report:null,categories:[],areas:[],error:message(failure,'We could not load the report form. Please try again.'),notFound:failure.response?.status === 404});
     });
     return () => controller.abort();
   }, [id,editing,validId,attempt]);
@@ -66,12 +67,23 @@ function ReportEditor({id}) {
   }
   const draft = !editing || loaded.report?.submission_stage === 'Draft';
   const editable = !editing || (loaded.report && !loaded.report.cancelled_at && (loaded.report.submission_stage === 'Draft' || loaded.report.status === 'Submitted'));
+  const existingArea = loaded.report?.area_id ?? null;
+  // Same rules as the server: an area is required once active areas exist, except that an
+  // older submitted report may stay Unassigned. A kept (now inactive) area stays valid
+  // until a draft is submitted.
+  function areaRules(submitting) {
+    const activeAreaIds = loaded.areas.map(area => area.id);
+    return {
+      activeAreaIds: submitting || existingArea === null ? activeAreaIds : [...activeAreaIds, existingArea],
+      areaRequired: draft ? loaded.areas.length > 0 : existingArea !== null,
+    };
+  }
   async function save(event) {
     event.preventDefault();
     if (writing.current || photosBlocked || uncertain || !editable) return;
     const intent = event.nativeEvent.submitter?.value || (draft ? 'draft' : 'save');
     const submit = !draft || intent === 'submit';
-    const nextErrors = validateReport(form,{submit,activeCategoryIds:loaded.categories.map(category => category.id)});
+    const nextErrors = validateReport(form,{submit,activeCategoryIds:loaded.categories.map(category => category.id),...areaRules(submit && draft)});
     setErrors(nextErrors); setError(''); setNotice(''); setConflict(false);
     if (Object.keys(nextErrors).length) { formRef.current.elements.namedItem(Object.keys(nextErrors)[0])?.focus(); return; }
     writing.current = true; setBusy(true);
@@ -115,6 +127,9 @@ function ReportEditor({id}) {
   if (loaded.error) return <div className="space-y-4">{back}<ErrorState message={loaded.error} onRetry={reload} /></div>;
   if (!editable) return <section className="panel"><EmptyState title="This report can no longer be edited" action={back}>Only private drafts and active Submitted reports can be edited.</EmptyState></section>;
   const unavailableCategory = form.category_id !== '' && !loaded.categories.some(category => String(category.id) === form.category_id);
+  const unavailableArea = form.area_id !== '' && !loaded.areas.some(area => String(area.id) === form.area_id);
+  const showArea = loaded.areas.length > 0 || form.area_id !== '';
+  const areaRequired = draft ? loaded.areas.length > 0 : existingArea !== null;
   return <>
     <PageHeader title={editing ? draft ? 'Continue draft' : 'Edit report' : 'Report an incident'} description={draft ? 'Save an incomplete private draft, or submit a complete report to your barangay.' : 'Update your report while it is still Submitted.'} action={back} />
     <div className="mx-auto max-w-3xl space-y-5">
@@ -131,7 +146,8 @@ function ReportEditor({id}) {
           <FormField id="report-title" label="Title" error={errors.title} required><input name="title" maxLength={150} value={form.title} onChange={change} disabled={busy || uncertain} placeholder="Briefly describe the concern" /></FormField>
           <FormField id="report-description" label="Description" error={errors.description} required><textarea name="description" rows={6} maxLength={65535} value={form.description} onChange={change} disabled={busy || uncertain} placeholder="Describe what happened and any details that can help barangay staff." /></FormField>
           <FormField id="report-location" label="Location" error={errors.location} required><textarea name="location" rows={2} maxLength={255} value={form.location} onChange={change} disabled={busy || uncertain} placeholder="Street, purok, or nearby landmark" /></FormField>
-          <FormField id="report-incident-date" label="Date and time of the concern" hint="When did the concern happen, or when did you notice it?" error={errors.incident_date} required><input type="datetime-local" name="incident_date" step={1} min="1000-01-01T00:00" value={form.incident_date} onChange={change} disabled={busy || uncertain} /></FormField>
+          {showArea && <FormField id="report-area" label="Area or purok" hint="The barangay area where the concern is. Use Location above for the street or landmark." error={errors.area_id} required={areaRequired}><select name="area_id" value={form.area_id} onChange={change} disabled={busy || uncertain}><option value="">{areaRequired ? 'Choose an area' : 'Not specified'}</option>{unavailableArea && <option value={form.area_id}>No longer listed (#{form.area_id})</option>}{loaded.areas.map(area => <option key={area.id} value={area.id}>{area.name}</option>)}</select></FormField>}
+          <FormField id="report-incident-date" label="Date and time of the concern" hint="When did the concern happen, or when did you notice it?" error={errors.incident_date} required><input type="datetime-local" name="incident_date" step={1} min="1000-01-01T00:00" max={nowInManila()} value={form.incident_date} onChange={change} disabled={busy || uncertain} /></FormField>
           {editing ? <PhotoAttachments reportId={id} editable disabled={busy || uncertain} onBlocked={setPhotosBlocked}/> : <PendingPhotoPicker files={pendingPhotos} onChange={setPendingPhotos} disabled={busy || uncertain}/>}
           <div className="flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:justify-end">{draft && <Button type="submit" name="intent" value="draft" variant="secondary" disabled={busy || uncertain || photosBlocked}>Save Draft</Button>}<Button type="submit" name="intent" value={draft ? 'submit' : 'save'} busy={busy} disabled={uncertain || photosBlocked || (!draft && !loaded.categories.length)}>{draft ? 'Submit Report' : 'Save changes'}</Button></div>
         </form>

@@ -1,5 +1,6 @@
 import ServiceIdentity from '../components/ui/ServiceIdentity';
 import churchPhoto from '../assets/branding/church.jpg';
+import {Link} from 'react-router-dom';
 export default function AuthLayout({title,description,children,footer,wide=false}) {
   return <div className="auth-background min-h-dvh px-4 py-6 sm:px-8 sm:py-10 lg:py-12">
     <a href="#main-content" className="skip-link">Skip to main content</a>
@@ -15,7 +16,7 @@ export default function AuthLayout({title,description,children,footer,wide=false
         </aside>
         <section className="min-w-0 px-5 py-7 sm:px-9 sm:py-10 lg:px-11 lg:py-12"><div className="mx-auto max-w-[520px]"><p className="eyebrow mb-4">Resident &amp; personnel access</p><h1 className="text-[30px] leading-tight font-semibold text-brand-dark sm:text-[36px]">{title}</h1><p className="mt-3 text-sm leading-7 text-muted">{description || 'Sign in using your registered email and password.'}</p><div className="mt-8">{children}</div>{footer && <div className="mt-7 border-t border-line pt-5 text-sm leading-7 text-muted">{footer}</div>}</div></section>
       </main>
-      <footer className="mt-6 flex flex-wrap justify-between gap-2 text-xs leading-6 text-muted"><p>BantayLog / Barangay records</p><p>Incident reports and official blotter records</p></footer>
+      <footer className="mt-6 flex flex-wrap justify-between gap-2 text-xs leading-6 text-muted"><p>BantayLog / Barangay records</p><p><Link className="text-link" to="/terms">Terms and Conditions</Link> · <Link className="text-link" to="/privacy">Privacy Notice</Link></p></footer>
     </div>
   </div>;
 }

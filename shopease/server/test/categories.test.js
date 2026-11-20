@@ -12,6 +12,7 @@ async function fixture(t) {
     query: async () => [[{ result: 1 }]],
     execute: async (sql, args) => {
       state.calls.push({ sql, args });
+  if(sql.startsWith('INSERT INTO activity_log')){(state.activity||=[]).push(args);return [{insertId:state.activity.length}];}if(sql.includes('FROM report_areas'))return [[]];
       if (sql.includes('FROM users')) return [[{ id: args[0], password_hash:'synthetic-resource-hash',email: 'synthetic@example.com', role: roles[args[0]-1], resident_id: null, is_active: 1 }]];
       if (state.fail) throw new Error('PRIVATE_DATABASE_DETAIL');
       if (sql.startsWith('SELECT')) {
@@ -35,6 +36,10 @@ async function fixture(t) {
       throw new Error('Unexpected SQL');
     }
   };
+  // Writes run in a transaction so the activity entry commits with the change.
+  db.getConnection = async () => { let snapshot; return { execute: db.execute,
+    beginTransaction: async () => { snapshot = structuredClone({ categories: state.categories, activity: state.activity }); },
+    commit: async () => {}, rollback: async () => { state.categories = snapshot.categories; state.activity = snapshot.activity; }, release: () => {} }; };
   const store = new session.MemoryStore();
   const app = createApp({ config, db, sessionStore: store });
   const server = app.listen(0, '127.0.0.1');

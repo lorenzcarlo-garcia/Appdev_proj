@@ -48,6 +48,12 @@ function createApp({ config, db, sessionStore, uploadDirectory } = {}) {
   app.use('/api/dashboard', middleware, require('./middleware/auth').authentication(db),
     require('./middleware/csrf').csrfProtection(config.clientOrigins || config.clientOrigin), require('./routes/dashboard')(db));
 
+  app.use('/api/areas', middleware, require('./middleware/auth').authentication(db),
+    require('./middleware/csrf').csrfProtection(config.clientOrigins || config.clientOrigin), require('./routes/areas')(db));
+
+  app.use('/api/activity', middleware, require('./middleware/auth').authentication(db),
+    require('./middleware/csrf').csrfProtection(config.clientOrigins || config.clientOrigin), require('./routes/activity')(db));
+
   // Legacy product routes are intentionally not mounted in BantayLog.
   app.use(notFound);
   app.use(errorHandler);

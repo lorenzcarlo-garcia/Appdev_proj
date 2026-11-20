@@ -20,10 +20,10 @@ module.exports = db => {
       const [users] = await db.execute(`SELECT ${fields} FROM users${where} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`, [...params,Number(page_size),(Number(page)-1)*Number(page_size)]);
       res.json({success:true,users,total:Number(counts[0].total),page:Number(page),page_size:Number(page_size)});
     }),
-    create: run(async (req,res) => res.status(201).json({success:true,user:await service.create(req.body)})),
+    create: run(async (req,res) => res.status(201).json({success:true,user:await service.create(req.user,req.body)})),
     update: run(async (req,res) => {
       if (!validId(req.params.id)) throw new UserError(400,'Invalid account ID');
-      res.json({success:true,user:await service.update(Number(req.params.id),req.user.id,req.body)});
+      res.json({success:true,user:await service.update(Number(req.params.id),req.user,req.body)});
     })
   };
 };

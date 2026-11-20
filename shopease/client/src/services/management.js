@@ -19,7 +19,12 @@ export const updateBlotter=(blotterId,details)=>data(api.put(`/blotters/${id(blo
 export const archiveBlotter=blotterId=>data(api.post(`/blotters/${id(blotterId)}/archive`,{confirm:true}));
 export const changeReportStatus=(reportId,status,remarks,expected_token)=>data(api.patch(`/reports/${id(reportId)}/status`,{status,remarks:remarks.trim()||null,...(expected_token?{expected_token}:{})}));
 export const convertReport=(reportId,details)=>data(api.post(`/reports/${id(reportId)}/blotter`,{...details,confirm:true}));
-export const getDashboard=(_params,signal)=>data(api.get('/dashboard',{signal}));
+export const getDashboard=(params,signal)=>data(api.get('/dashboard',{params,signal}));
+export const listActivity=(params,signal)=>data(api.get('/activity',{params,signal}));
+export const listAdminAreas=(_params,signal)=>data(api.get('/areas',{params:{include_inactive:true},signal}));
+export const createArea=details=>data(api.post('/areas',details));
+export const updateArea=(areaId,details)=>data(api.put(`/areas/${id(areaId)}`,details));
+export const assignReportArea=(reportId,area_id,expected_token)=>data(api.patch(`/reports/${id(reportId)}/area`,{area_id,...(expected_token?{expected_token}:{})}));
 export const getOwnProfile=(_params,signal)=>data(api.get('/auth/profile',{signal}));
 export const getOwnStaffProfile=(_params,signal)=>data(api.get('/auth/staff-profile',{signal}));
 export const saveOwnStaffProfile=details=>data(api.put('/auth/staff-profile',details));

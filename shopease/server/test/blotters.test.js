@@ -23,6 +23,7 @@ async function fixture(t) {
  }
  async function execute(sql,args) {
   state.calls.push({sql,args});
+  if(sql.startsWith('INSERT INTO activity_log')){if(state.failActivity)throw new Error('PRIVATE_ACTIVITY_ERROR');(state.activity||=[]).push(args);return [{insertId:state.activity.length}];}if(sql.includes('FROM report_areas'))return [[]];
   if(sql.startsWith('UPDATE community_updates'))return [{affectedRows:0}];
   if(sql.startsWith('SELECT id, email'))return [[{id:args[0],role:roles[args[0]-1],is_active:1,password_hash:'synthetic-resource-hash',email:'test@example.invalid',resident_id:args[0]<3?args[0]:null}]];
   if(sql.includes('FROM incident_categories'))return [state.categories.filter(row=>row.id===args[0])];
@@ -54,7 +55,7 @@ async function fixture(t) {
   throw new Error('Unexpected blotter/workflow SQL');
  }
  const db={query:async()=>[[{result:1}]],execute,getConnection:async()=>{
-  let unlock,snapshot;return {execute,beginTransaction:async()=>{const previous=queue;queue=new Promise(resolve=>{unlock=resolve;});await previous;snapshot=structuredClone({blotters:state.blotters,reports:state.reports,history:state.history});},commit:async()=>unlock(),rollback:async()=>{state.rollbacks++;Object.assign(state,snapshot);unlock();},release:()=>{}};
+  let unlock,snapshot;return {execute,beginTransaction:async()=>{const previous=queue;queue=new Promise(resolve=>{unlock=resolve;});await previous;snapshot=structuredClone({blotters:state.blotters,reports:state.reports,history:state.history,activity:state.activity||[]});},commit:async()=>unlock(),rollback:async()=>{state.rollbacks++;Object.assign(state,snapshot);unlock();},release:()=>{}};
  }};
  const store=new session.MemoryStore();const app=createApp({config,db,sessionStore:store});const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
  t.after(async()=>{await new Promise(resolve=>server.close(resolve));store.clear();});
@@ -217,4 +218,19 @@ test('status and approval actions reject a report changed after staff reviewed i
  assert.equal((await f.request(3,'/reports/1/status','PATCH',{status:'Under Investigation',expected_token:token})).status,409);
  assert.equal((await f.request(5,'/reports/1/blotter','POST',{...form,confirm:true,expected_report_token:token})).status,409);
  assert.equal(f.state.blotters.length,0);assert.equal(f.state.history.length,0);
+});
+
+test('processing and approvals are logged by role without remarks, and a failed log rolls the action back',async t=>{
+ const f=await fixture(t);seedReport(f.state);seedReport(f.state);
+ assert.equal((await f.request(4,'/reports/1/status','PATCH',{status:'Under Investigation',remarks:'PRIVATE resident-facing remark'})).status,200);
+ const [actor,role,action,type,entityId,ref,detail,visibility]=f.state.activity[0];
+ assert.deepEqual([actor,role,action,type,entityId,detail,visibility],[4,'secretary','report.status_changed','report',1,'Submitted → Under Investigation','administrative']);
+ assert.match(ref,/^RPT-|^Report #1$/);
+ assert(!JSON.stringify(f.state.activity).includes('PRIVATE'),'remarks are never logged');
+ assert.equal((await f.request(5,'/reports/2/blotter','POST',{...form,confirm:true})).status,201);
+ assert.deepEqual(f.state.activity.at(-1).slice(1,4),['captain','blotter.approved_from_report','blotter']);
+ assert(!JSON.stringify(f.state.activity).includes('TEST Person'),'complainant names are never logged');
+ f.state.failActivity=true;
+ assert.equal((await f.request(4,'/reports/1/status','PATCH',{status:'Scheduled for Action'})).status,500);
+ assert.equal(f.state.reports[0].status,'Under Investigation');assert.equal(f.state.history.length,1);assert.equal(f.state.activity.length,2);
 });

@@ -33,6 +33,7 @@ async function fixture(t){
  }
  async function execute(sql,args=[]){
   state.calls.push({sql,args});
+  if(sql.startsWith('INSERT INTO activity_log')){(state.activity||=[]).push(args);return [{insertId:state.activity.length}];}if(sql.includes('FROM report_areas'))return [[]];
   if(sql.startsWith('SELECT') && sql.includes('FROM incident_reports'))return [structuredClone(state.reports.filter(row=>row.id===args[0]))];
   if(sql.startsWith('SELECT id, email'))return [[{id:args[0],password_hash:'synthetic-resource-hash',email:'test@example.invalid',role:roles[args[0]-1],resident_id:null,is_active:1}]];
   if(state.missing)throw Object.assign(new Error('synthetic missing table'),{code:'ER_NO_SUCH_TABLE'});

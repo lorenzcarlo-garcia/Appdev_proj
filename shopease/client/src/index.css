@@ -132,3 +132,37 @@
 }
 .document-sheet > h2 { font-family: var(--font-sans); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 @media (prefers-reduced-motion: reduce) { .button, .service-card, .stat-cell { transition: none; } .service-card:hover, .service-card:active, .stat-cell:hover { transform: none; } }
+
+/* Dashboard charts: plain HTML/CSS bars, values always printed beside or above bars. */
+.progress-track, .bar-track { position: relative; overflow: hidden; border-radius: 999px; background: #e3ece9; }
+.progress-track { height: 0.875rem; }
+.bar-track { height: 0.625rem; }
+.progress-fill, .bar-fill { display: block; height: 100%; min-width: 2px; border-radius: inherit; background: var(--color-brand); }
+.bar-muted { background: var(--color-rule); }
+.line-chart { display: block; max-width: 100%; height: auto; overflow: visible; }
+.line-grid { stroke: #dde7e4; stroke-width: 1; }
+.line-axis { fill: var(--color-muted); font: 11px/1 var(--font-sans); }
+.line-value { fill: var(--color-brand-dark); font: 600 12px/1 var(--font-sans); }
+.line-path { fill: none; stroke: var(--color-brand); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: line-draw 1.2s ease-out forwards; }
+.line-area { opacity: 0; animation: line-fade 0.6s ease-out 0.8s forwards; }
+.line-point circle { fill: var(--color-brand-dark); stroke: var(--color-surface); stroke-width: 2; }
+.line-point circle, .line-value { opacity: 0; animation: line-fade 0.35s ease-out var(--delay, 1s) forwards; }
+@keyframes line-draw { to { stroke-dashoffset: 0; } }
+@keyframes line-fade { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .line-path { animation: none; stroke-dashoffset: 0; }
+  .line-area, .line-point circle, .line-value { animation: none; opacity: 1; }
+}
+.activity-list > li { padding: 1rem 1.25rem; }
+.activity-list > li + li { border-top: 1px solid var(--color-line); }
+@media (min-width: 640px) { .activity-list > li { padding: 1rem 1.75rem; } }
+/* Policy pages */
+.policy-text h2 { margin-top: 2rem; font: 600 1.25rem/1.4 var(--font-heading); color: var(--color-brand-dark); }
+.policy-text p, .policy-text li { margin-top: 0.75rem; font-size: 0.9375rem; line-height: 1.75; }
+.policy-text ul { padding-left: 1.25rem; list-style: disc; }
+/* Clickable dashboard cards filter the report table. */
+.stat-button { display: block; width: 100%; cursor: pointer; font: inherit; color: inherit; }
+.stat-button:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 3px; }
+.stat-action { color: var(--color-accent); }
+.stat-selected { border-color: var(--color-brand); box-shadow: inset 0 0 0 2px var(--color-brand); }
+.stat-selected .stat-action { color: var(--color-brand-dark); }

@@ -1,6 +1,9 @@
 const managers=['secretary','captain','super_admin'];
 const {guardEdit,reportKeys}=require('./editToken');
 const {fields:reportFields}=require('./reportService');
+const {logActivity,reportRef}=require('./activityLog');
+// Titles are reviewed public text, so they are safe to show as the activity reference.
+const log=(c,user,action,id,title,detail=null)=>logActivity(c,user,{action,entityType:'community_update',entityId:Number(id),entityRef:title,detail});
 const progress=['Planned','Ongoing','Completed'];
 const publicFields='id, title, summary, location, maintenance_status, update_type, published_at, updated_at';
 const managementFields=publicFields+', source_report_id, publication_state, version, created_by, updated_by, published_by, archived_by, archived_at, created_at';
@@ -67,6 +70,7 @@ function communityUpdateService(db){
       manager(user);object(body,['title','summary','location','maintenance_status']);const data=content(body);
       return transaction(async c=>{
         const [result]=await c.execute('INSERT INTO community_updates (title, summary, location, maintenance_status, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?)',[data.title,data.summary,data.location,data.maintenance_status,user.id,user.id]);
+        await log(c,user,'community.created',result.insertId,data.title,'Maintenance draft');
         return detail(result.insertId,user,c);
       });
     },
@@ -84,6 +88,7 @@ function communityUpdateService(db){
         let result;
         try{[result]=await c.execute("INSERT INTO community_updates (title, summary, location, maintenance_status, created_by, updated_by, source_report_id, update_type) VALUES (?, ?, ?, ?, ?, ?, ?, 'Reported issue')",[data.title,data.summary,data.location,data.maintenance_status,user.id,user.id,Number(id)]);}
         catch(error){if(error.code==='ER_DUP_ENTRY')fail(409,'This report already has a community update. Open its existing update instead.');throw error;}
+        await log(c,user,'community.created_from_report',result.insertId,data.title,`Draft summary for ${reportRef(report)}`);
         return detail(result.insertId,user,c);
       });
     },
@@ -95,6 +100,7 @@ function communityUpdateService(db){
         if(row.source_report_id && data.maintenance_status!==row.maintenance_status)fail(400,'Progress follows the source report. Update the report status instead.');
         if(row.publication_state==='Published' && body.confirm!==true) fail(400,'Review the public summary and confirm before changing a published update');
         await c.execute('UPDATE community_updates SET title = ?, summary = ?, location = ?, maintenance_status = ?, updated_by = ?, version = version + 1 WHERE id = ?',[data.title,data.summary,data.location,data.maintenance_status,user.id,Number(id)]);
+        await log(c,user,'community.updated',id,data.title,row.publication_state==='Published'?'Published text edited':null);
         return detail(id,user,c);
       });
     },
@@ -107,8 +113,10 @@ function communityUpdateService(db){
           if(row.publication_state!=='Draft') fail(409,'Only a draft can be published');
           content(row);
           await c.execute("UPDATE community_updates SET publication_state = 'Published', published_by = ?, published_at = CURRENT_TIMESTAMP, updated_by = ?, version = version + 1 WHERE id = ?",[user.id,user.id,Number(id)]);
+          await log(c,user,'community.published',id,row.title);
         }else if(action==='archive'){
           await c.execute("UPDATE community_updates SET publication_state = 'Archived', archived_by = ?, archived_at = CURRENT_TIMESTAMP, updated_by = ?, version = version + 1 WHERE id = ?",[user.id,user.id,Number(id)]);
+          await log(c,user,'community.archived',id,row.title);
         }else fail(400,'Unknown update action');
         return detail(id,user,c);
       });

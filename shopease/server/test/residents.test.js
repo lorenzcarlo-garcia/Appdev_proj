@@ -14,6 +14,7 @@ async function fixture(t) {
   };
   async function execute(sql,args) {
     state.calls.push({sql,args});
+  if(sql.startsWith('INSERT INTO activity_log')){(state.activity||=[]).push(args);return [{insertId:state.activity.length}];}if(sql.includes('FROM report_areas'))return [[]];
     if (sql.startsWith('SELECT id, email')) return [state.active ? [{id:args[0],password_hash:'synthetic-resource-hash',email:'synthetic@example.com',role:roles[args[0]-1],is_active:1,resident_id:null}] : []];
     if (sql.startsWith('SELECT id FROM users')) return [state.linked.includes(args[0]) ? [{id:1}] : []];
     if (sql.startsWith('SELECT COUNT')) return [[{total:state.residents.length}]];

@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "dev:lan": "vite --host 0.0.0.0",
-    "test": "node --test test/coreRoutes.test.mjs test/communityUpdates.test.mjs test/passwordChange.test.mjs test/reportSubmission.test.mjs"
+    "test": "node --test test/coreRoutes.test.mjs test/communityUpdates.test.mjs test/passwordChange.test.mjs test/reportSubmission.test.mjs test/incidentDate.test.mjs test/dashboard.test.mjs"
   },
   "dependencies": {
     "axios": "^1.20.0",

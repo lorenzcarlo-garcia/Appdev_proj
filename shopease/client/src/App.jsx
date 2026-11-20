@@ -9,6 +9,10 @@ import BlotterFormPage from './pages/admin/BlotterFormPage';
 import AccountPage from './pages/AccountPage';
 import ResidentHomePage from './pages/resident/ResidentHomePage';
 import CommunityUpdatesPage from './pages/admin/CommunityUpdatesPage';
+import AreasPage from './pages/admin/AreasPage';
+import ActivityPage from './pages/admin/ActivityPage';
+import TermsPage from './pages/TermsPage';
+import PrivacyPage from './pages/PrivacyPage';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import AuthProvider from './context/AuthContext.jsx';
 import { useAuth } from './hooks/useAuth';
@@ -40,6 +44,9 @@ function PublicOnly() {
 export function AppRoutes() {
   return <Routes>
     <Route path="/" element={<HomeRedirect />} />
+    {/* Policy drafts are readable before and after signing in. */}
+    <Route path="/terms" element={<TermsPage />} />
+    <Route path="/privacy" element={<PrivacyPage />} />
     <Route element={<PublicOnly />}>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -72,8 +79,10 @@ export function AppRoutes() {
         <Route path="account" element={<AccountPage />} />
         <Route path="community-updates" element={<CommunityUpdatesPage />} />
         <Route path="residents" element={<ResidentsPage/>} />
+        <Route path="activity" element={<ActivityPage/>} />
         <Route element={<ProtectedRoute roles={['secretary','super_admin']} />}>
           <Route path="categories" element={<CategoriesPage/>} />
+          <Route path="areas" element={<AreasPage/>} />
         </Route>
         <Route element={<ProtectedRoute roles={['super_admin']} />}>
           <Route path="staff" element={<StaffAccountsPage />} />

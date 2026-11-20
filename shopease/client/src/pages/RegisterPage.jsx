@@ -69,6 +69,7 @@ export default function RegisterPage() {
           </div></fieldset>
         </fieldset>
         <p className="text-sm leading-6 text-muted">You can report concerns after creating your account. Your resident details may be verified later.</p>
+        <p className="text-sm leading-6 text-muted">Before registering, please read the <Link className="text-link" to="/terms">Terms and Conditions</Link> and <Link className="text-link" to="/privacy">Privacy Notice</Link>.</p>
         <Button type="submit" busy={busy} className="w-full">Create account</Button>
       </form>
     </div>

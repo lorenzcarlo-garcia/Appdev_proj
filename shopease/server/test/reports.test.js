@@ -25,12 +25,13 @@ async function fixture(t) {
   }
   async function execute(sql,args) {
     state.calls.push({sql,args});
+  if(sql.startsWith('INSERT INTO activity_log')){(state.activity||=[]).push(args);return [{insertId:state.activity.length}];}if(sql.includes('FROM report_areas'))return [(state.areas||[]).filter(row=>sql.includes('WHERE id = ?')?row.id===args[0]:row.is_active===1).slice(0,1)];
   if(sql.startsWith('UPDATE community_updates'))return [{affectedRows:0}];
     if(sql.startsWith('INSERT INTO resident_report_counters')){state.counters[args[0]]=(state.counters[args[0]]||0)+1;return [{affectedRows:1}];}
     if(sql.startsWith('SELECT last_report_no FROM resident_report_counters'))return [[{last_report_no:state.counters[args[0]]}]];
     if(sql.startsWith('SELECT id, email')) return [[{id:args[0],password_hash:'synthetic-resource-hash',email:'test@example.invalid',role:roles[args[0]-1],resident_id:args[0]<=2?args[0]:null,is_active:1}]];
     if(sql.includes('FROM incident_categories')) return [state.categories.filter(row=>row.id===args[0])];
-    if(sql.startsWith('SELECT') && sql.includes('FROM report_status_history')) return [state.history.filter(row=>row.report_id===args[0])];
+    if(sql.startsWith('SELECT old_status')) return [state.history.filter(row=>row.report_id===args[0])];
     if(sql.startsWith('SELECT') && sql.includes('FROM incident_reports')) {
       const rows=filter(sql,args);
       if(sql.startsWith('SELECT COUNT')) return [[{total:rows.length}]];
@@ -38,8 +39,8 @@ async function fixture(t) {
       return [structuredClone(result).map(row=>({...row,incident_date:row.incident_date?.replace(' ','T')||null}))];
     }
     if(sql.startsWith('INSERT INTO incident_reports')) {
-      const [user_id,category_id,title,description,location,incident_date]=args;
-      const row=seed(state,{user_id,category_id,title,description,location,incident_date});return [{insertId:row.id}];
+      const [user_id,category_id,title,description,location,incident_date,area_id]=args;
+      const row=seed(state,{user_id,category_id,title,description,location,incident_date,area_id});return [{insertId:row.id}];
     }
     if(sql.startsWith('INSERT INTO report_status_history')) {
       if(state.failHistory) throw new Error('PRIVATE_HISTORY_ERROR');
@@ -47,7 +48,8 @@ async function fixture(t) {
     }
     const row=state.reports.find(item=>item.id===args.at(-1));
     if(sql.startsWith('UPDATE incident_reports SET submission_stage')) [row.submission_stage,row.status,row.reference_no,row.resident_report_no]=args;
-    else if(sql.startsWith('UPDATE incident_reports SET category_id')) [row.category_id,row.title,row.description,row.location,row.incident_date]=args;
+    else if(sql.startsWith('UPDATE incident_reports SET category_id')) [row.category_id,row.title,row.description,row.location,row.incident_date,row.area_id]=args;
+    else if(sql.startsWith('UPDATE incident_reports SET area_id')) row.area_id=args[0];
     else if(sql.startsWith('UPDATE incident_reports SET cancelled_at')) {row.cancelled_at='synthetic cancellation time';row.cancelled_by=args[0];}
     else throw new Error('Unexpected report SQL');
     return [{affectedRows:1}];
@@ -219,4 +221,35 @@ test('an older resident form cannot overwrite a saved change and successful draf
  const latest=(await f.request(1,'/1')).data.report;assert.equal(changed.data.edit_token,latest.edit_token);
  assert.equal((await f.request(1,'/1','PUT',{...form,title:'Updated title',expected_token:latest.edit_token})).status,200);
  assert.equal((await f.request(1,'/1','PUT',[])).status,400);
+});
+
+test('areas are optional until configured, then required and active at submission; activity is recorded',async t=>{
+  const f=await fixture(t);
+  // No areas configured yet: submission works without one and drafts never create activity.
+  assert.equal((await f.request(1,'','POST',form)).status,201);
+  assert.equal((await f.request(1,'/drafts','POST',{title:'Private draft'})).status,201);
+  assert.deepEqual(f.state.activity.map(row=>[row[1],row[2],row[3]]),[['resident','report.submitted','report']]);
+  f.state.areas=[{id:1,name:'Purok Uno',is_active:1},{id:2,name:'Old Purok',is_active:0}];
+  const missing=await f.request(1,'','POST',form);
+  assert.equal(missing.status,400);assert.match(missing.data.message,/area or purok/);
+  assert.equal((await f.request(1,'','POST',{...form,area_id:2})).status,400);
+  assert.equal((await f.request(1,'','POST',{...form,area_id:'1'})).status,400);
+  const created=await f.request(1,'','POST',{...form,area_id:1});
+  assert.equal(created.status,201);assert.equal(f.state.reports.find(row=>row.id===created.data.report.id).area_id,1);
+  // Drafts may still be saved without an area.
+  assert.equal((await f.request(1,'/drafts','POST',{title:'Another draft'})).status,201);
+  // An older submitted report stays Unassigned when its owner edits it.
+  assert.equal((await f.request(1,'/1','PUT',{...form,title:'Edited'})).status,200);
+  // Administrators may assign or clear an area; residents may not.
+  assert.equal((await f.request(1,'/1/area','PATCH',{area_id:1})).status,403);
+  const assigned=await f.request(3,'/1/area','PATCH',{area_id:1});
+  assert.equal(assigned.status,200);assert.equal(f.state.reports[0].area_id,1);
+  const entry=f.state.activity.at(-1);
+  assert.deepEqual([entry[1],entry[2],entry[3],entry[6]],['staff','report.area_assigned','report','Area: Purok Uno']);
+  assert.equal((await f.request(3,'/1/area','PATCH',{area_id:2})).status,400,'a new pick must be active');
+  assert.equal((await f.request(3,'/2/area','PATCH',{area_id:1})).status,404,'drafts stay private');
+  assert.equal((await f.request(1,`/${created.data.report.id}/cancel`,'POST',{})).status,200);
+  assert.equal(f.state.activity.at(-1)[2],'report.cancelled');
+  assert.equal((await f.request(3,`/${created.data.report.id}/area`,'PATCH',{area_id:null})).status,409);
+  for(const row of f.state.activity) assert(!JSON.stringify(row).includes('Test details'),'report text is never copied into activity');
 });

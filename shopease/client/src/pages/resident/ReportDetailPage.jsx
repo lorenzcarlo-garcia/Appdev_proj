@@ -7,6 +7,9 @@ import {useEffect, useState} from 'react';
 import {Link, useLocation, useParams} from 'react-router-dom';
 import {getReport,cancelReport} from '../../services/reports';
 import {getCategory} from '../../services/categories';
+import {listAreas} from '../../services/areas';
+import useResource from '../../hooks/useResource';
+const loadAreas=(_params,signal)=>listAreas(signal);
 import {formatDateTime} from '../../utils/dates';
 import PageHeader from '../../components/ui/PageHeader';
 import StatusBadge from '../../components/ui/StatusBadge';
@@ -18,6 +21,7 @@ import Alert from '../../components/ui/Alert';
 
 export default function ReportDetailPage() {
   const {id} = useParams();
+  const areas = useResource(loadAreas);
   const action=useWriteAction();
   const [confirmCancel,setConfirmCancel]=useState(false);
   const location = useLocation();
@@ -70,6 +74,8 @@ export default function ReportDetailPage() {
         <div><dt className="text-sm text-muted">Category</dt><dd className="mt-2 text-sm font-medium wrap-anywhere">{categoryName}</dd></div>
         <div><dt className="text-sm text-muted">Incident date and time</dt><dd className="mt-2 text-sm font-medium">{formatDateTime(report.incident_date)}</dd></div>
         <div><dt className="text-sm text-muted">Created</dt><dd className="mt-2 text-sm font-medium">{formatDateTime(report.created_at)}</dd></div>
+        {report.submitted_at && <div><dt className="text-sm text-muted">Submitted</dt><dd className="mt-2 text-sm font-medium">{formatDateTime(report.submitted_at)}</dd></div>}
+        <div><dt className="text-sm text-muted">Area or purok</dt><dd className="mt-2 text-sm font-medium wrap-anywhere">{report.area_id == null ? 'Not specified' : areas.loading ? 'Loading…' : (Array.isArray(areas.data) ? areas.data : []).find(area => area.id === report.area_id)?.name || 'No longer listed'}</dd></div>
         <div className="sm:col-span-2"><dt className="text-sm text-muted">Location</dt><dd className="mt-2 text-sm leading-6 whitespace-pre-wrap wrap-anywhere">{report.location || 'Not entered'}</dd></div>
         <div className="sm:col-span-2"><dt className="text-sm text-muted">Description</dt><dd className="mt-2 text-sm leading-7 whitespace-pre-wrap wrap-anywhere">{report.description || 'Not entered'}</dd></div>
         {cancelled && <div><dt className="text-sm text-muted">Cancelled on</dt><dd className="mt-2 text-sm font-medium">{formatDateTime(report.cancelled_at)}</dd></div>}

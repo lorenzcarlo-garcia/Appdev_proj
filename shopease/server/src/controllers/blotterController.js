@@ -32,8 +32,8 @@ module.exports = db => {
       if (!rows.length) throw new BlotterError(404,'Blotter record not found');
       res.json({success:true,blotter:{...rows[0],edit_token:editToken(rows[0],blotterKeys)}});
     }),
-    create: run(async (req,res) => res.status(201).json({success:true,blotter:await service.create(req.user.id,req.body)})),
-    update: run(async (req,res) => res.json({success:true,...await service.update(id(req),req.body)})),
-    archive: run(async (req,res) => res.json({success:true,...await service.archive(id(req),req.user.id,req.body)}))
+    create: run(async (req,res) => res.status(201).json({success:true,blotter:await service.create(req.user,req.body)})),
+    update: run(async (req,res) => res.json({success:true,...await service.update(id(req),req.user,req.body)})),
+    archive: run(async (req,res) => res.json({success:true,...await service.archive(id(req),req.user,req.body)}))
   };
 };

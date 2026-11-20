@@ -2,7 +2,7 @@ const {createHash}=require('node:crypto');
 const residentKeys=['first_name','middle_name','last_name','birth_date','contact_no','address'];
 const categoryKeys=['name','description','is_active'];
 const blotterKeys=['category_id','complainant_name','respondent_name','narrative','incident_date','location','archived_at'];
-const reportKeys=['category_id','title','description','location','incident_date','submission_stage','status','cancelled_at'];
+const reportKeys=['category_id','title','description','location','incident_date','submission_stage','status','cancelled_at','area_id'];
 class EditConflictError extends Error{constructor(status,message){super(message);this.status=status;}}
 function editToken(row,keys){return createHash('sha256').update(JSON.stringify(keys.map(key=>row[key] instanceof Date?row[key].toISOString():row[key]??null))).digest('hex');}
 function guardEdit(row,expected,keys){

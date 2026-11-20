@@ -6,9 +6,11 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node --test test/auth.test.js test/categories.test.js test/residents.test.js test/reports.test.js test/blotters.test.js test/users.test.js test/attachments.test.js test/communityUpdates.test.js test/changePassword.test.js test/workflows.test.js test/passwordReset.test.js",
+    "test": "node --test test/auth.test.js test/categories.test.js test/residents.test.js test/reports.test.js test/blotters.test.js test/users.test.js test/attachments.test.js test/communityUpdates.test.js test/changePassword.test.js test/workflows.test.js test/passwordReset.test.js test/incidentDates.test.js test/dashboard.test.js",
     "setup:admin": "node src/scripts/createSuperAdmin.js",
-    "recover:password": "node src/scripts/recoverPassword.js"
+    "recover:password": "node src/scripts/recoverPassword.js",
+    "sample:add": "node src/scripts/seedSampleData.js",
+    "sample:remove": "node src/scripts/removeSampleData.js"
   },
   "keywords": [],
   "author": "",

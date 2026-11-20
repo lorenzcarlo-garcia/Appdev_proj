@@ -1,4 +1,5 @@
 const {editToken,guardEdit,categoryKeys}=require('../services/editToken');
+const {logActivity}=require('../services/activityLog');
 const fields = 'id, name, description, is_active, created_at, updated_at';
 const administrativeRoles = ['staff', 'secretary', 'captain', 'super_admin'];
 const validId = value => /^[1-9]\d*$/.test(value) && Number(value) <= 4294967295;
@@ -16,6 +17,12 @@ function validate(body, update) {
   return { name, description, is_active: body.is_active };
 }
 function categoryController(db) {
+  async function transaction(work) {
+    const c = await db.getConnection(); let begun = false;
+    try { await c.beginTransaction(); begun = true; const result = await work(c); await c.commit(); begun = false; return result; }
+    catch (error) { if (begun) await c.rollback(); throw error; }
+    finally { c.release(); }
+  }
   return {
     list: async (req, res) => {
       if (req.query.include_inactive !== undefined && !['true', 'false'].includes(req.query.include_inactive)) {
@@ -44,8 +51,12 @@ function categoryController(db) {
       const data = validate(req.body, false);
       if (!data) return res.status(400).json({ success: false, message: 'Name (1-100 characters) and optional description (up to 255 characters) are required; unexpected fields are not allowed' });
       try {
-        const [result] = await db.execute('INSERT INTO incident_categories (name, description) VALUES (?, ?)', [data.name, data.description]);
-        res.status(201).json({ success: true, category: { id: result.insertId, name: data.name, description: data.description, is_active: 1 } });
+        const id = await transaction(async c => {
+          const [result] = await c.execute('INSERT INTO incident_categories (name, description) VALUES (?, ?)', [data.name, data.description]);
+          await logActivity(c, req.user, {action:'category.created', entityType:'category', entityId:result.insertId, entityRef:data.name});
+          return result.insertId;
+        });
+        res.status(201).json({ success: true, category: { id, name: data.name, description: data.description, is_active: 1 } });
       } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') return res.status(409).json({ success: false, message: 'Category name already exists' });
         throw error;
@@ -57,21 +68,17 @@ function categoryController(db) {
       const data = validate(details, true);
       if (!data) return res.status(400).json({ success: false, message: 'Provide a valid name, optional description, and optional boolean is_active; unexpected fields are not allowed' });
       const id = Number(req.params.id);
-      if(expected_token!==undefined){
-        const c=await db.getConnection();let begun=false;
-        try{await c.beginTransaction();begun=true;const [rows]=await c.execute(`SELECT ${fields} FROM incident_categories WHERE id = ? FOR UPDATE`,[id]);if(!rows.length){await c.rollback();begun=false;return res.status(404).json({success:false,message:'Category not found'});}guardEdit(rows[0],expected_token,categoryKeys);await c.execute('UPDATE incident_categories SET name = ?, description = ?, is_active = COALESCE(?, is_active) WHERE id = ?',[data.name,data.description,data.is_active===undefined?null:Number(data.is_active),id]);await c.commit();begun=false;return res.json({success:true,message:'Category updated'});}
-        catch(error){if(begun)await c.rollback();if(error.code==='ER_DUP_ENTRY')return res.status(409).json({success:false,message:'Category name already exists'});throw error;}finally{c.release();}
-      }
       try {
-        const [result] = await db.execute(
-          'UPDATE incident_categories SET name = ?, description = ?, is_active = COALESCE(?, is_active) WHERE id = ?',
-          [data.name, data.description, data.is_active === undefined ? null : Number(data.is_active), id]
-        );
-        // A no-op update may report no changed rows; distinguish it from a missing ID.
-        if (!result.affectedRows) {
-          const [rows] = await db.execute('SELECT id FROM incident_categories WHERE id = ?', [id]);
-          if (!rows.length) return res.status(404).json({ success: false, message: 'Category not found' });
-        }
+        const found = await transaction(async c => {
+          const [rows] = await c.execute(`SELECT ${fields} FROM incident_categories WHERE id = ? FOR UPDATE`, [id]);
+          if (!rows.length) return false;
+          guardEdit(rows[0], expected_token, categoryKeys);
+          await c.execute('UPDATE incident_categories SET name = ?, description = ?, is_active = COALESCE(?, is_active) WHERE id = ?', [data.name, data.description, data.is_active === undefined ? null : Number(data.is_active), id]);
+          const activeChanged = data.is_active !== undefined && Boolean(rows[0].is_active) !== data.is_active;
+          await logActivity(c, req.user, {action:'category.updated', entityType:'category', entityId:id, entityRef:data.name, detail:activeChanged ? (data.is_active ? 'Reactivated' : 'Deactivated') : 'Details edited'});
+          return true;
+        });
+        if (!found) return res.status(404).json({ success: false, message: 'Category not found' });
         res.json({ success: true, message: 'Category updated' });
       } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') return res.status(409).json({ success: false, message: 'Category name already exists' });

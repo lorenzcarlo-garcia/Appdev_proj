@@ -1,3 +1,4 @@
+const {submittedAtSql}=require('../src/services/dashboardFilters');
 const {test}=require('node:test');const assert=require('node:assert/strict');const session=require('express-session');const {randomBytes,createHmac}=require('node:crypto');const {createApp}=require('../src/server');const {credentialTag}=require('../src/services/sessionCredentials');const {recoverPassword}=require('../src/services/recoverPasswordService');const {verifyPassword}=require('../src/services/password');
 const roles=['resident','staff','secretary','captain','super_admin','resident'];const config={clientOrigin:'http://localhost:5173',sessionSecret:'synthetic-remaining-workflows-session-secret-over-32-bytes',production:false};
 const profile={first_name:'Fictional',middle_name:null,last_name:'Resident',birth_date:'2000-01-01',contact_no:null,address:'Fictional address'};
@@ -11,6 +12,7 @@ async function fixture(t){
  {id:6,user_id:1,category_id:1,title:'Cancelled concern',submission_stage:'Submitted',status:'Submitted',cancelled_at:'2026-01-01'}],calls:[],staffProfiles:{},failProfile:false,failSessions:false};
  let queue=Promise.resolve();
  async function execute(sql,args=[]){state.calls.push({sql,args});
+  if(sql.startsWith('INSERT INTO activity_log')){(state.activity||=[]).push(args);return [{insertId:state.activity.length}];}if(sql.includes('FROM report_areas'))return [[]];
   if(sql.includes('FROM users'))return [structuredClone(state.users.filter(user=>sql.includes('WHERE email = ?')?user.email===args[0]:user.id===args[0]))];
   if(sql.includes('FROM staff_profiles'))return [state.staffProfiles[args[0]]?[structuredClone(state.staffProfiles[args[0]])]:[]];
   if(sql.startsWith('INSERT INTO staff_profiles')){const [id,first_name,middle_name,last_name,birth_date,contact_no,address]=args;state.staffProfiles[id]={first_name,middle_name,last_name,birth_date,contact_no,address,version:1};if(state.failProfile)throw new Error('PRIVATE_PROFILE_FAILURE');return [{affectedRows:1}];}
@@ -20,6 +22,8 @@ async function fixture(t){
   if(sql.startsWith('UPDATE users SET password_hash')){state.users.find(row=>row.id===args[1]).password_hash=args[0];return [{affectedRows:1}];}
   if(sql.startsWith('DELETE FROM sessions')){if(state.failSessions)throw new Error('PRIVATE_SESSION_FAILURE');for(const id of Object.keys(store.sessions))if(JSON.parse(store.sessions[id]).userId===Number(args[0]))delete store.sessions[id];return [{affectedRows:1}];}
   if(sql.includes('FROM incident_reports')){
+   // Ignore the submitted_at subquery so its status text is not mistaken for a filter.
+   sql=sql.split(submittedAtSql('incident_reports')).join('');
    let rows=state.reports,index=0;
    if(sql.includes('user_id = ?')){const value=args[index++];rows=rows.filter(row=>row.user_id===value);}
    if(sql.includes("submission_stage = 'Submitted'"))rows=rows.filter(row=>row.submission_stage==='Submitted');
@@ -40,7 +44,7 @@ async function fixture(t){
  async function request(id,path,method='GET',body,headers={}){const r=await fetch(`http://127.0.0.1:${server.address().port}/api`+path,{method,headers:{Origin:config.clientOrigin,Cookie:cookies[id]||'','X-CSRF-Token':token,'Content-Type':'application/json',...headers},body:method==='GET'?undefined:JSON.stringify(body)});return {status:r.status,data:await r.json()};}
  return {db,state,request};
 }
-test('dashboard excludes drafts/cancellations and denies resident/anonymous access',async t=>{const f=await fixture(t);for(const id of [0,1,6])assert.equal((await f.request(id,'/dashboard')).status,id?403:401);for(const id of [2,3,4,5])assert.deepEqual((await f.request(id,'/dashboard')).data.counts,{total:4,open:1,ongoing:2,resolved:1});});
+test('dashboard denies resident/anonymous access (aggregates are covered in dashboard.test.js)',async t=>{const f=await fixture(t);for(const id of [0,1,6])assert.equal((await f.request(id,'/dashboard')).status,id?403:401);});
 test('server report search and status filters run before pagination and preserve ownership',async t=>{const f=await fixture(t);assert.deepEqual((await f.request(1,'/reports?search=Drainage&page_size=1')).data.reports.map(row=>row.id),[4]);assert.equal((await f.request(1,'/reports?search=resolved')).data.total,0);assert.equal((await f.request(2,'/reports?search=resolved')).data.total,1);assert.deepEqual((await f.request(1,'/reports?status_group=ongoing')).data.reports.map(row=>row.id),[4]);assert.equal((await f.request(2,'/reports?category_id=2')).data.total,1);assert.equal((await f.request(2,'/reports?status=Resolved')).data.total,1);});
 test('report filter injection remains bound and malformed filters fail',async t=>{const f=await fixture(t);await f.request(2,'/reports?search='+encodeURIComponent("%' OR 1=1 --"));const call=f.state.calls.find(call=>call.sql.includes('CONCAT_WS'));assert.ok(call);assert.ok(!call.sql.includes('OR 1=1 --'));for(const q of ['category_id=0','category_id=abc','status=Draft','status_group=unknown','search='+ 'x'.repeat(256)])assert.equal((await f.request(2,'/reports?'+q)).status,400);});
 test('own profile exposes only safe resident fields and cannot target another resident',async t=>{const f=await fixture(t);const me=await f.request(1,'/auth/profile');assert.equal(me.status,200);assert.equal(me.data.profile.first_name,'Fictional');assert.equal(me.data.profile.id,undefined);assert.equal(me.data.profile.verified_by,undefined);assert.equal((await f.request(6,'/auth/profile')).data.profile.first_name,'Other');for(const id of [2,3,4,5])assert.equal((await f.request(id,'/auth/profile')).status,403);assert.equal((await f.request(1,'/auth/profile','PUT',{...profile,resident_id:2})).status,400);});
