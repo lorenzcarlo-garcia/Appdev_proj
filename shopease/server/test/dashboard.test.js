@@ -76,18 +76,18 @@ test('dashboard is administrative only and returns counts without private report
   const f=await fixture(t);
   assert.equal((await f.request(0,'/dashboard')).status,401);
   assert.equal((await f.request(1,'/dashboard')).status,403);
-  const {status,data}=await f.request(2,'/dashboard?period=custom&from=2026-11-01&to=2026-11-30&granularity=week&category_id=1&area_id=unassigned');
+  const {status,data}=await f.request(2,'/dashboard?period=custom&from=2025-10-01&to=2025-10-31&granularity=week&category_id=1&area_id=unassigned');
   assert.equal(status,200);
   assert.deepEqual(data.cohort,{received:3,awaiting:1,ongoing:1,resolved:1});
   assert.equal(data.cohort.awaiting+data.cohort.ongoing+data.cohort.resolved,data.cohort.received);
   // Every week bucket of the period is present, including genuine zeros.
-  assert.deepEqual(data.series.map(row=>row.bucket),['2026-10-26','2026-11-02','2026-11-09','2026-11-16','2026-11-23','2026-11-30']);
-  assert.deepEqual(data.series.map(row=>row.total),[0,0,0,0,0,0],'SQL bucket 2026-11-01 is not a week key and must not be invented');
+  assert.deepEqual(data.series.map(row=>row.bucket),['2025-09-29','2025-10-06','2025-10-13','2025-10-20','2025-10-27']);
+  assert.deepEqual(data.series.map(row=>row.total),[0,0,0,0,0],'SQL bucket 2026-11-01 is not a week key and must not be invented');
   assert.deepEqual(data.areas[0],{id:null,name:'Unassigned',is_active:null,total:2});
   assert.equal(data.anomalies.missing_submission_record,1);
   // Filters are bound parameters and the range is half-open at the next midnight.
   const cohortCall=f.state.calls.find(call=>call.sql.startsWith('SELECT COUNT(*) AS received'));
-  assert.deepEqual(cohortCall.args,[1,'2026-11-01 00:00:00','2026-12-01 00:00:00']);
+  assert.deepEqual(cohortCall.args,[1,'2025-10-01 00:00:00','2025-11-01 00:00:00']);
   assert.match(cohortCall.sql,/submission_stage = 'Submitted' AND r\.cancelled_at IS NULL AND r\.category_id = \? AND r\.area_id IS NULL AND s\.submitted_at >= \? AND s\.submitted_at < \?/);
   assert.match(cohortCall.sql,/old_status IS NULL AND new_status = 'Submitted'/);
   assert.doesNotMatch(cohortCall.sql,/created_at >= \?/,'draft creation time is never used for periods');

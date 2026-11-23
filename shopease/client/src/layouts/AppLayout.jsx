@@ -3,7 +3,7 @@ import ResidentVerification from '../components/residents/ResidentVerification';
 import lakePhoto from '../assets/branding/lake.jpg';
 import { useId, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, ClipboardList, BookOpen, Users, Tags, UserRoundCog, UserRound, Menu, LogOut, Home, Megaphone, MapPin, History } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, BookOpen, Users, Tags, UserRoundCog, UserRound, Menu, LogOut, Home, Megaphone, MapPin, History, FileText } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
@@ -14,6 +14,7 @@ const adminLinks = [
   {to:'/admin',label:'Dashboard',icon:LayoutDashboard,end:true},
   {to:'/admin/reports',label:'Reports',icon:ClipboardList},
   {to:'/admin/blotters',label:'Blotter Records',icon:BookOpen},
+  {to:'/admin/summary-reports',label:'Summary Reports',icon:FileText,roles:['secretary','captain','super_admin']},
   {to:'/admin/community-updates',label:'Community Updates',icon:Megaphone},
   {to:'/admin/residents',label:'Residents',icon:Users},
   {to:'/admin/categories',label:'Categories',icon:Tags,roles:['secretary','super_admin']},

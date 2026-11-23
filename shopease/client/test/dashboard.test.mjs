@@ -106,3 +106,14 @@ test('personnel see who reported, and the complainant name is built from it',asy
   assert.match(html,/Reported by/);assert.match(html,/Maria Santos Cruz/);assert.match(html,/Verified/);assert.match(html,/Not provided/);
   assert.match(renderToStaticMarkup(createElement(ReporterDetails,{reporter:null})),/not available/);
 });
+test('summary reports page is limited to Secretary, Captain and Super Admin',()=>{
+  for(const role of ['secretary','captain','super_admin']){const html=route('/admin/summary-reports',role);assert.match(html,/Summary reports/);assert.match(html,/Download PDF/);assert.doesNotMatch(html,/You do not have access/);}
+  for(const role of ['staff','resident']) assert.match(route('/admin/summary-reports',role),/You do not have access/);
+});
+test('PDF download errors show the server message, read from the blob body',async()=>{
+  const {downloadErrorMessage}=await vite.ssrLoadModule('/src/utils/download.js');
+  const blob=new Blob([JSON.stringify({success:false,message:'This period has not started yet.'})],{type:'application/json'});
+  assert.equal(await downloadErrorMessage({response:{status:400,data:blob}}),'This period has not started yet.');
+  assert.match(await downloadErrorMessage({response:{status:403,data:new Blob(['nope'])}}),/Secretary, Captain or Super Admin/);
+  assert.match(await downloadErrorMessage({}),/could not be created/);
+});

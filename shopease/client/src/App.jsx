@@ -11,6 +11,7 @@ import ResidentHomePage from './pages/resident/ResidentHomePage';
 import CommunityUpdatesPage from './pages/admin/CommunityUpdatesPage';
 import AreasPage from './pages/admin/AreasPage';
 import ActivityPage from './pages/admin/ActivityPage';
+import SummaryReportsPage from './pages/admin/SummaryReportsPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
@@ -71,6 +72,7 @@ export function AppRoutes() {
         <Route path="blotters/:id" element={<BlotterDetailPage/>} />
         <Route element={<ProtectedRoute roles={['secretary','captain','super_admin']} />}>
           <Route path="blotters/new" element={<BlotterFormPage/>} />
+          <Route path="summary-reports" element={<SummaryReportsPage/>} />
           <Route path="blotters/:id/edit" element={<BlotterFormPage mode="edit"/>} />
         </Route>
         <Route element={<ProtectedRoute roles={['captain','super_admin']} />}>

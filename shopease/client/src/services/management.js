@@ -34,3 +34,5 @@ export const saveOwnProfile=async details=>{
   if(typeof window!=='undefined')window.dispatchEvent(new Event('bantaylog:profile-updated'));
   return result;
 };
+export const downloadBlotterPdf=blotterId=>api.get(`/blotters/${id(blotterId)}/pdf`,{responseType:'blob'});
+export const downloadSummaryPdf=params=>api.get('/summaries/pdf',{params,responseType:'blob'});

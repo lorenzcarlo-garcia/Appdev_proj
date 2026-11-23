@@ -54,6 +54,9 @@ function createApp({ config, db, sessionStore, uploadDirectory } = {}) {
   app.use('/api/activity', middleware, require('./middleware/auth').authentication(db),
     require('./middleware/csrf').csrfProtection(config.clientOrigins || config.clientOrigin), require('./routes/activity')(db));
 
+  app.use('/api/summaries', middleware, require('./middleware/auth').authentication(db),
+    require('./middleware/csrf').csrfProtection(config.clientOrigins || config.clientOrigin), require('./routes/summaries')(db));
+
   // Legacy product routes are intentionally not mounted in BantayLog.
   app.use(notFound);
   app.use(errorHandler);

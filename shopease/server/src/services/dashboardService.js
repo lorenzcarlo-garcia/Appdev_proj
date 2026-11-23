@@ -1,6 +1,7 @@
 // Aggregates for the administrative dashboard. Responses contain only counts and labels:
 // no titles, descriptions, location text, names, user IDs or reporter details.
 const {parseDashboardQuery,sqlStart,FilterError}=require('./dashboardFilters');
+const {manilaNow}=require('./manilaTime');
 const bucketSql={
   day:"DATE_FORMAT(s.submitted_at, '%Y-%m-%d')",
   week:"DATE_FORMAT(DATE_SUB(DATE(s.submitted_at), INTERVAL WEEKDAY(s.submitted_at) DAY), '%Y-%m-%d')",
@@ -15,8 +16,10 @@ function dashboardService(db){
     if(!rows.length) throw new FilterError(`Choose an existing ${label}.`);
   }
   return {
-    async summary(query){
-      const f=parseDashboardQuery(query);
+    async summary(query,now=Date.now()){
+      const f=parseDashboardQuery(query,now);
+      // Buckets that start after today have not happened yet; drawing them as 0 would mislead.
+      const today=manilaNow(0,now).slice(0,10);
       if(f.category_id!==undefined) await exists('incident_categories',f.category_id,'category');
       if(typeof f.area_id==='number') await exists('report_areas',f.area_id,'area');
       // Eligible = submitted and not cancelled. Filters apply before any aggregation.
@@ -39,7 +42,7 @@ function dashboardService(db){
       return {
         filters:{period:f.preset,from:f.start,to:f.last,granularity:f.granularity,category_id:f.category_id??null,area_id:f.area_id??null},
         cohort:{received:Number(cohort.received),awaiting:Number(cohort.awaiting),ongoing:Number(cohort.ongoing),resolved:Number(cohort.resolved)},
-        series:f.keys.map(bucket=>({bucket,total:counts.get(bucket)||0})),
+        series:f.keys.filter(bucket=>bucket<=today).map(bucket=>({bucket,total:counts.get(bucket)||0})),
         categories:categories.map(number),
         areas:areas.map(row=>({...number(row),id:row.id??null,name:row.id==null?'Unassigned':row.name})),
         anomalies:{missing_submission_record:Number(anomaly.total)}

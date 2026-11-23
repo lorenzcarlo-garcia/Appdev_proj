@@ -6,6 +6,7 @@ export const actionLabels={
   'community.created':'Community update drafted','community.created_from_report':'Public summary drafted from a report','community.updated':'Community update edited','community.published':'Community update published','community.archived':'Community update archived',
   'resident.created':'Resident record added','resident.updated':'Resident record edited','resident.verified':'Resident verified','resident.unverified':'Resident verification removed','resident.deleted':'Resident record deleted','resident.self_updated':'Resident edited own details',
   'category.created':'Category added','category.updated':'Category updated','area.created':'Area added','area.updated':'Area updated',
+  'blotter.printed':'Blotter PDF downloaded','summary.generated':'Summary report PDF downloaded',
   'staff_account.created':'Staff account created','staff_account.updated':'Staff account changed',
 };
 export const entityTypeLabels={report:'Reports',blotter:'Blotter records',community_update:'Community updates',resident:'Residents',category:'Categories',area:'Areas',staff_account:'Staff accounts'};
